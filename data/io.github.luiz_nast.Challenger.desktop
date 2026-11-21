@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Challenger
+Comment=Tempo de sites que só conta quando é você olhando
+Exec=challenger
+Icon=io.github.luiz_nast.Challenger
+Categories=Utility;
+Keywords=youtube;instagram;tiktok;pinterest;tempo;limite;
+StartupNotify=true
