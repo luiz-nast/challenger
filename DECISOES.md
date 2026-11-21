@@ -77,14 +77,42 @@ regra, com subdomínios.
 
 ## D7. Bloqueio: janela por cima, nunca toca no navegador
 
-- Janela GTK 3 via XWayland por cima de tudo, em cada monitor, sem pegar o foco do teclado: a aba
-  continua em foco, então Ctrl+Tab, Ctrl+W e Alt+Tab funcionam e a tela some na hora.
-- Clique e Esc não fecham (a janela não aceita foco e recusa o pedido de fechar).
+- Janela GTK 3 via XWayland do tipo **override-redirect** (POPUP), uma por monitor, do tamanho do
+  monitor inteiro. O mutter põe esse tipo acima de todas as janelas, inclusive navegador em tela
+  cheia (um DOCK, como a pílula, é rebaixado quando o monitor está em tela cheia). Fica abaixo da
+  barra do GNOME, da visão geral e do Alt+Tab, que continuam usáveis.
+- Não pega o foco do teclado: a aba continua em foco, então Ctrl+Tab e Alt+Tab funcionam e a
+  tela some no segundo seguinte.
+- Clique e Esc não fecham (a janela não recebe foco e recusa o pedido de fechar).
+- Opacidade 0,96, como no Maverick, e não 1: coberto por janela opaca, o GNOME para de desenhar o
+  Chrome, e um agente que tira print da aba poderia ficar esperando.
+- Linha de trabalho travada por mais de 5 s: a tela sai (falha aberta só nesse caso) para não
+  prender o desktop.
+- A dica da tela não sugere Ctrl+W nem Alt+F4: fecharia a aba ou a janela de um agente.
 - O Challenger não chama nada no navegador: não fecha aba, não recarrega, não muda URL, não pausa
   mídia (o Maverick pausava; aqui pausar mexeria na página de um agente). Um teste garante que o
   código não tem essas chamadas.
 
-## D8. Repositório
+## D8. Pílula: a do Maverick, sem mudar nada
+
+Mesmo CSS, mesma janela (DOCK, sem foco, sempre no topo, todas as áreas de trabalho), mesmo canto
+(superior direito, margem 12), mesmo texto (`Instagram 03:12 / 07:00`), mesmas cores e os mesmos
+2 s depois de sair de foco. Cinza ("parado") quando o site está em foco mas a sala está vazia.
+Na tela de descanso a pílula aparece dentro dela, vermelha: `⛔ YouTube 20:00 / 20:00`.
+Comparação: as janelas reais das duas pílulas, cada app no seu processo, saem idênticas byte a
+byte (`docs/prints/pilula-janelas-reais.png`). O token-meter também usa o canto superior direito
+(margem 20); como o Maverick, as duas podem se encostar.
+
+## D9. Janela: tema Dose do Hallmark, UX pelo design-better
+
+Paleta, tipografia e superfícies do tema Dose (papel quente, tinta verde-escura, um verde só para
+sinal, horários em mono), traduzidas para CSS do GTK com variáveis. Escuro: chão "night" do Dose.
+Fonte do sistema (Ubuntu Sans) no lugar das do tema, que não estão instaladas. Cada site tem uma
+faixa de cor própria (os compartimentos de uma caixa de remédios), e descanso é cinza, nunca
+vermelho. Uma ação principal (Adicionar site), erro que diz o que fazer, desfazer para mudança
+pendente.
+
+## D10. Repositório
 
 - `PROMPT.md` fica fora do Git (`.gitignore`): é a conversa comigo, não o produto.
 - Prints em `docs/prints/` são gerados com dados de exemplo, nunca da tela real.
