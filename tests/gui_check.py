@@ -33,6 +33,14 @@ def check(cond, what):
         failures.append(what)
 
 
+def iter_children(w):
+    child = w.get_first_child()
+    while child:
+        yield child
+        yield from iter_children(child)
+        child = child.get_next_sibling()
+
+
 def pump(seconds=0.3):
     ctx, end = GLib.MainContext.default(), time.monotonic() + seconds
     while time.monotonic() < end:
@@ -58,6 +66,30 @@ class App(gui.App):
         check(not win.banner_focus.get_revealed(), "sem aviso de extensão (Maverick respondeu)")
         check(not win.banner_pending.get_revealed(), "sem pendência no começo")
 
+        # cinco cliques no + da sessão, atravessando o refresh de 1 s: grava 25, não menos
+        spin = next(w for w in iter_children(yt.session) if isinstance(w, Gtk.SpinButton))
+        for _ in range(5):
+            spin.spin(Gtk.SpinType.STEP_FORWARD, 1)
+            pump(0.3)
+        pump(1.2)
+        cfg = store.load_config()
+        check(engine.rules_wanted(cfg)["youtube.com"]["session_minutes"] == 25,
+              f"5 cliques no + gravam 25 ({engine.rules_wanted(cfg)['youtube.com']['session_minutes']})")
+        # dois sites editados em seguida: os dois ficam
+        win.edit("youtube.com", 30, 240)
+        win.edit("instagram.com", 7, 30)
+        pump(1.2)
+        wanted = engine.rules_wanted(store.load_config())
+        check(wanted["youtube.com"]["session_minutes"] == 30 and wanted["instagram.com"]["rest_minutes"] == 30,
+              "duas edições seguidas em sites diferentes ficam")
+        # remover logo depois de editar: a remoção vence
+        win.edit("pinterest.com", 9, 15)
+        win.remove("pinterest.com")
+        pump(1.2)
+        check("pinterest.com" not in engine.rules_wanted(store.load_config()), "remover logo depois de editar remove")
+        win.undo("pinterest.com")
+        win.undo("instagram.com")
+        pump(0.3)
         # editar regra: vale só amanhã
         yt.session.set_value(45)
         pump(1.2)
@@ -79,6 +111,13 @@ class App(gui.App):
         check("tiktok.com" in engine.rules_today(cfg, today), "TikTok continua hoje")
         check("tiktok.com" not in engine.rules_today(cfg, engine.next_day(today)), "TikTok sai amanhã")
         check("Sai da lista amanhã" in win.rows["tiktok.com"].get_subtitle(), "linha avisa a remoção")
+        tt = win.rows["tiktok.com"]
+        pump(1.2)
+        check((tt.session.get_value(), tt.rest.get_value()) == (7, 15), "site com remoção pendente mostra a regra de hoje")
+        # fechar a janela logo depois de editar grava a edição
+        win.edit("instagram.com", 8, 15)
+        win._flush()
+        check(engine.rules_wanted(store.load_config())["instagram.com"]["session_minutes"] == 8, "fechar grava a edição pendente")
 
         # adicionar: domínio inválido, repetido e válido
         win.add_domain.set_text("isso não é site")
@@ -88,6 +127,7 @@ class App(gui.App):
         win._add()
         check("já está na lista" in win.add_message.get_text(), "erro de site repetido")
         win.add_domain.set_text("https://www.Reddit.com/r/brasil")
+        win.add_name.set_text("Reddit")
         win.add_session.set_value(5)
         win.add_rest.set_value(30)
         win._add()

@@ -136,13 +136,16 @@ class SiteRow(Adw.ExpanderRow):
             self.win.edit(self.key, int(self.session.get_value()), int(self.rest.get_value()))
 
     def set_rule(self, wanted: dict | None) -> None:
-        if wanted and not (self.session.has_focus() or self.rest.has_focus()):
+        """Mostra a regra pedida, mas não por cima do que o usuário está mexendo: com o foco
+        num dos campos (o foco fica no texto de dentro) ou com gravação ainda pendente."""
+        typing = any(w.get_state_flags() & Gtk.StateFlags.FOCUS_WITHIN for w in (self.session, self.rest))
+        if wanted and not typing and self.key not in self.win.saves:
             self._loading = True
             self.session.set_value(wanted["session_minutes"])
             self.rest.set_value(wanted["rest_minutes"])
             self._loading = False
 
-    def update(self, st: engine.SiteStatus, change: str | None, wanted: dict | None) -> None:
+    def update(self, st: engine.SiteStatus, change: str | None, wanted: dict | None, today: dict) -> None:
         self.set_title(st.name)
         if st.resting:
             until = time.strftime("%H:%M", time.localtime(st.rest_until))
@@ -165,7 +168,7 @@ class SiteRow(Adw.ExpanderRow):
             self.pending.set_subtitle(f"A partir de amanhã: sessão de {wanted['session_minutes']} min, "
                                       f"descanso de {wanted['rest_minutes']} min")
         self.remove_btn.set_sensitive(change != "removida")
-        self.set_rule(wanted)
+        self.set_rule(wanted or today)
 
 
 class Window(Adw.ApplicationWindow):
@@ -173,7 +176,8 @@ class Window(Adw.ApplicationWindow):
         super().__init__(application=app, title=store.APP_NAME, default_width=480, default_height=860)
         self.config = store.load_config()
         self.rows: dict[str, SiteRow] = {}
-        self._save_source = 0
+        self.saves: dict[str, tuple[int, object]] = {}  # site -> (timer, gravar): edição esperando o fim dos cliques
+        self.connect("close-request", self._flush)
 
         self.banner_daemon = Adw.Banner(title="O contador está parado: nada está sendo contado.",
                                         button_label="Iniciar")
@@ -224,18 +228,20 @@ class Window(Adw.ApplicationWindow):
         return group
 
     def _build_add(self) -> Adw.PreferencesGroup:
-        group = Adw.PreferencesGroup(title="Adicionar site", description="Site novo vale na hora.")
+        group = Adw.PreferencesGroup(
+            title="Adicionar site", description="Site novo vale na hora. O nome é como o site aparece no título da aba.")
         self.add_domain = Adw.EntryRow(title="Domínio, ex.: reddit.com")
         self.add_domain.set_input_purpose(Gtk.InputPurpose.URL)
         self.add_domain.connect("entry-activated", self._add)
         self.add_domain.connect("changed", lambda *_: self._add_error(""))
+        self.add_name = Adw.EntryRow(title="Nome na aba (opcional), ex.: Reddit")
         self.add_session = Adw.SpinRow.new_with_range(1, 1440, 1)
         self.add_session.set_title("Sessão ativa (minutos)")
         self.add_session.set_value(7)
         self.add_rest = Adw.SpinRow.new_with_range(1, 1440, 1)
         self.add_rest.set_title("Descanso (minutos)")
         self.add_rest.set_value(15)
-        for row in (self.add_domain, self.add_session, self.add_rest):
+        for row in (self.add_domain, self.add_name, self.add_session, self.add_rest):
             group.add(row)
         self.add_message = Gtk.Label(xalign=0, wrap=True, margin_top=10, visible=False)
         self.add_message.add_css_class("error-text")
@@ -259,26 +265,40 @@ class Window(Adw.ApplicationWindow):
         self.refresh()
 
     def edit(self, key: str, session: int, rest: int) -> None:
-        if self._save_source:
-            GLib.source_remove(self._save_source)
+        """Grava a regra pedida para um site, SAVE_DELAY_MS depois do último clique nele."""
+        self._cancel(key)
 
         def save():
-            self._save_source = 0
-            wanted = engine.rules_wanted(store.load_config())
-            rule = wanted.get(key) or engine.rules_today(self.config, self._today())[key]
+            self.saves.pop(key, None)
+            config = store.load_config()
+            wanted = engine.rules_wanted(config)
+            rule = wanted.get(key) or engine.rules_today(config, self._today())[key]
             wanted[key] = {**rule, "session_minutes": session, "rest_minutes": rest}
             self._apply(wanted, "Regra nova vale a partir de amanhã.")
             return False
 
-        self._save_source = GLib.timeout_add(SAVE_DELAY_MS, save)
+        self.saves[key] = (GLib.timeout_add(SAVE_DELAY_MS, save), save)
+
+    def _cancel(self, key: str) -> None:
+        if key in self.saves:
+            GLib.source_remove(self.saves.pop(key)[0])
+
+    def _flush(self, *_) -> bool:
+        """Fechar a janela grava na hora o que ainda esperava."""
+        for key in list(self.saves):
+            GLib.source_remove(self.saves[key][0])
+            self.saves[key][1]()
+        return False
 
     def remove(self, key: str) -> None:
+        self._cancel(key)
         wanted = engine.rules_wanted(store.load_config())
         wanted.pop(key, None)
         self._apply(wanted, "O site sai da lista amanhã, à meia-noite.")
 
     def undo(self, key: str) -> None:
         """Volta o pedido de mudança desse site para a regra de hoje."""
+        self._cancel(key)
         config = store.load_config()
         wanted, today = engine.rules_wanted(config), engine.rules_today(config, self._today())
         wanted[key] = today[key]
@@ -299,8 +319,10 @@ class Window(Adw.ApplicationWindow):
             self._add_error(f"{domain} já está na lista. Para mudar a regra, abra o site na lista acima.")
             return
         wanted = engine.rules_wanted(config)
-        wanted[domain] = engine.new_rule(domain, int(self.add_session.get_value()), int(self.add_rest.get_value()))
+        wanted[domain] = engine.new_rule(domain, int(self.add_session.get_value()), int(self.add_rest.get_value()),
+                                         self.add_name.get_text())
         self.add_domain.set_text("")
+        self.add_name.set_text("")
         self._apply(wanted, f"{domain} adicionado. Já está valendo.")
 
     def _start_daemon(self, *_):
@@ -325,7 +347,8 @@ class Window(Adw.ApplicationWindow):
             if key not in self.rows:
                 self.rows[key] = SiteRow(self, key, i % 7)
                 self.sites_group.add(self.rows[key])
-            self.rows[key].update(engine.status(rules, state["sites"], key, now), changes.get(key), wanted.get(key))
+            self.rows[key].update(engine.status(rules, state["sites"], key, now), changes.get(key), wanted.get(key),
+                                  rules[key])
 
         focus = live.get("focus") if running else None
         site = engine.status(rules, state["sites"], focus, now) if focus in rules else None
