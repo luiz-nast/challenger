@@ -159,3 +159,26 @@ Relógio falso, câmera falsa e foco falso nos testes de lógica; integração r
 8. Instalação, serviço, atalho e ícone.
 9. Prints e comparação da pílula.
 10. README; integração real; revisão final.
+
+## Revisão adversarial (o que mudou depois do plano)
+
+Dois críticos leram o plano e seis revisores leram o código; cada achado de código passou por um
+verificador que tentou refutá-lo (15 de 16 confirmados). Aceitos e feitos:
+
+| Achado | Correção |
+|---|---|
+| Site adicionado com subdomínio ganhava nome errado (`web.whatsapp.com` → "Web") e nunca contava | nome do rótulo antes do TLD, pulando `com`, `co`, `net`...; campo opcional "Nome na aba" |
+| Títulos do X (`Início / X`) não casavam; `Capítulo X` casava | ` / ` é separador; começo/fim de trecho só para nomes com mais de 1 letra |
+| Janela privativa do Firefox em pt-BR (`— Mozilla Firefox — navegação privativa`) nunca contava | sufixo privativo removido antes do sufixo do navegador |
+| Chrome com nome de perfil no título (`- Google Chrome - Trabalho`) | corta do trecho com a marca até o fim |
+| Exceção do detector com a câmera aberta derrubava o ciclo (nada contava) e deixava a luz acesa | vira "erro" (conta) e a câmera desliga; config da câmera com tipo errado volta ao padrão |
+| Quadro vazio virava "sala vazia" | quadro vazio é "erro" (conta) |
+| Agente voltando ao site recontava ~5 s de sala vazia a cada reabertura da câmera | reaberta em até 5 min, a câmera começa da última decisão |
+| Se um clique desse foco à tela de descanso, ela sumiria | janelas do daemon têm `WM_CLASS` própria; foco nelas não muda nada |
+| Janela: um só temporizador de gravação para todas as linhas; refresh desfazia cliques; remover/desfazer logo após editar e fechar a janela perdiam edição; site com remoção pendente abria com 1/1 | um temporizador por site, refresh respeita foco e gravação pendente, remover/desfazer cancelam, fechar grava, regra de hoje como padrão |
+| Testes estáticos faltando | metadata da extensão, seções do README, nada de rede no código, `.gitignore` cobrindo quadros e temporários |
+
+Recusados: rotacionar o quadro para achar rosto deitado (mais código para um caso raro; fica nos
+limites do README); Xvfb para os testes de janela (a tela real funciona e é mais fiel); trocar a
+extensão por um teste com `gnome-shell --headless` (pesado; a extensão é a mesma do Maverick com
+outro caminho, e o teste estático confere o metadata).

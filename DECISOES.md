@@ -34,10 +34,13 @@ nada é contado e a janela avisa.
 ## D3. Site pelo título da janela, não pela URL
 
 Sem acessibilidade não há URL. O título da janela do navegador traz o título da aba
-(`Vídeo - YouTube - Google Chrome`). Regra (aprendida no Maverick): tira o sufixo do navegador e o
-contador `(3) `; o site conta se o nome dele é o título inteiro, o último trecho (separado por
-` - `, ` | `, ` • ` etc.), `no/on Instagram:`, ou o primeiro trecho quando o título tem só dois
-trechos e não é de busca (`TikTok - Make Your Day`). Endereço no título (o navegador mostra a URL
+(`Vídeo - YouTube - Google Chrome`). Regra (aprendida no Maverick): tira o sufixo do navegador
+(inclusive `— navegação privativa` e nome de perfil), o aviso de som e o contador `(3) `; o site
+conta se o nome dele é o título inteiro, o último trecho depois de ` - ` (igual ao nome), o último
+trecho depois de ` • `, ` | `, ` · ` ou ` / ` (igual, começando ou terminando com o nome),
+`no/on Instagram:`, ou o primeiro trecho quando o título tem só dois e não é de busca
+(`TikTok - Make Your Day`). Site adicionado pela janela usa o "Nome na aba" (ou o nome tirado do
+domínio: `web.whatsapp.com` → Whatsapp). Endereço no título (o navegador mostra a URL
 como título enquanto carrega: `m.youtube.com/watch?...`, `youtu.be/...`) casa pelos domínios da
 regra, com subdomínios.
 
@@ -54,7 +57,9 @@ regra, com subdomínios.
 - Limiares padrão (configuráveis em `~/.config/challenger/config.json`, chave `camera`): brilho
   médio < 35 ou desvio-padrão < 10 = tapada. Medido aqui: quarto escuro dá média ~6, desvio ~4.
 - Suavização: o estado só muda depois de 3 leituras seguidas iguais (1 por segundo). Antes da
-  primeira decisão o estado é "desconhecido", que **conta** (falha fechada).
+  primeira decisão o estado é "desconhecido", que **conta** (falha fechada). Reaberta em até
+  5 min, a câmera começa da última decisão (um agente voltando ao site não reconta a sala vazia).
+- Erro com a câmera já aberta, quadro vazio ou config da câmera com tipo errado: "erro" (conta).
 - Nenhum quadro vai para disco: a imagem vive só na memória da função que a analisa.
 
 ## D5. Mudança de regra: adicionar vale na hora, o resto vale amanhã
