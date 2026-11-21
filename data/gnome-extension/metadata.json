@@ -1,0 +1,7 @@
+{
+  "uuid": "challenger@luiz-nast.github.io",
+  "name": "Challenger",
+  "description": "Diz ao Challenger qual janela está em foco (só lê, não mexe em nada).",
+  "shell-version": ["45", "46", "47", "48", "49", "50"],
+  "url": "https://github.com/luiz-nast/challenger"
+}
