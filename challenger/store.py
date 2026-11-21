@@ -59,7 +59,8 @@ def load_config() -> dict:
     nxt = data.get("next")
     if not (isinstance(nxt, dict) and isinstance(nxt.get("from"), str) and _valid_rules(nxt.get("rules"))):
         nxt = None
-    camera = {**CAMERA_DEFAULTS, **(data.get("camera") if isinstance(data.get("camera"), dict) else {})}
+    given = data.get("camera") if isinstance(data.get("camera"), dict) else {}
+    camera = {k: given[k] if type(given.get(k)) in (int, float) and given[k] >= 0 else v for k, v in CAMERA_DEFAULTS.items()}
     rules = data.get("rules") if _valid_rules(data.get("rules")) else default_rules()
     return {"rules": rules, "next": nxt, "camera": camera}
 

@@ -85,9 +85,10 @@ class MatchTest(unittest.TestCase):
 
     def test_private_and_incognito_windows(self):
         for t in ("Vídeo - YouTube — Navegação privativa do Mozilla Firefox", "Vídeo - YouTube — Mozilla Firefox Private Browsing",
+                  "Vídeo - YouTube — Mozilla Firefox — navegação privativa", "Stories • Instagram — Mozilla Firefox — navegação privativa",
                   "Vídeo - YouTube - Google Chrome (Anônima)", "Review of Google Chrome - YouTube - Google Chrome",
                   "Vídeo - YouTube - Reprodução de áudio - Google Chrome"):
-            self.assertEqual(self.site(t, "firefox"), "youtube.com", t)
+            self.assertIn(self.site(t, "firefox"), ("youtube.com", "instagram.com"), t)
 
     def test_only_browsers(self):
         self.assertIsNone(engine.site_for_window("org.gnome.TextEditor", "YouTube", RULES))
@@ -260,6 +261,30 @@ class RuleChangeTest(unittest.TestCase):
         engine.tick(sites, without, last + 60, None, False)
         self.assertEqual(sites["instagram.com"]["rest_until"], last + 15 * MIN)
         self.assertTrue(engine.status(RULES, sites, "instagram.com", last + 120).resting)
+
+    def test_added_site_name_from_domain(self):
+        names = {d: engine.new_rule(d, 7, 15)["name"] for d in
+                 ("reddit.com", "web.whatsapp.com", "m.reddit.com", "mercadolivre.com.br", "bbc.co.uk", "x.com")}
+        self.assertEqual(names, {"reddit.com": "Reddit", "web.whatsapp.com": "Whatsapp", "m.reddit.com": "Reddit",
+                                 "mercadolivre.com.br": "Mercadolivre", "bbc.co.uk": "Bbc", "x.com": "X"})
+        rules = {"web.whatsapp.com": engine.new_rule("web.whatsapp.com", 7, 15)}
+        self.assertEqual(engine.site_for_window("google-chrome", "(3) WhatsApp - Google Chrome", rules), "web.whatsapp.com")
+
+    def test_added_site_with_tab_name(self):
+        cfg = self.config()
+        wanted = {**engine.rules_wanted(cfg), "x.com": engine.new_rule("x.com", 5, 10, name="X")}
+        rules = engine.rules_today(engine.change_rules(cfg, wanted, "2026-11-21"), "2026-11-21")
+        self.assertEqual(engine.site_for_window("google-chrome", "Início / X - Google Chrome", rules), "x.com")
+        self.assertIsNone(engine.site_for_window("google-chrome", "Xadrez online - Google Chrome", rules))
+        self.assertEqual(engine.site_for_window("google-chrome", "(3) Início / X - Google Chrome", rules), "x.com")
+        self.assertEqual(engine.site_for_window("google-chrome", "Fulano (@fulano) / X - Google Chrome", rules), "x.com")
+        self.assertIsNone(engine.site_for_window("google-chrome", "Resumo | Capítulo X - Google Chrome", rules))
+
+    def test_expired_rest_reads_as_new_session(self):
+        sites = {"instagram.com": {"used": 420, "rest_until": 1000.0}}
+        st = engine.status(RULES, sites, "instagram.com", 1000.0)
+        self.assertFalse(st.resting)
+        self.assertEqual(st.used, 0)
 
     def test_remove_every_site(self):
         cfg = engine.change_rules(self.config(), {}, "2026-11-21")

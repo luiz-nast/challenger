@@ -95,10 +95,13 @@ def normalize_domain(text: str) -> str | None:
     return host if re.fullmatch(r"([a-z0-9-]+\.)+[a-z]{2,}", host) else None
 
 
-def new_rule(domain: str, session_minutes: int, rest_minutes: int) -> dict:
-    """Regra de um site adicionado pela interface; o nome sai do domínio (`reddit.com` -> `Reddit`)."""
-    label = domain.split(".")[0]
-    return {"name": label[:1].upper() + label[1:], "domains": [domain],
+def new_rule(domain: str, session_minutes: int, rest_minutes: int, name: str = "") -> dict:
+    """Regra de um site adicionado pela interface. `name` é como o site aparece no título da aba;
+    sem ele, sai do domínio (`reddit.com` -> `Reddit`)."""
+    # O rótulo antes do TLD, pulando os genéricos: web.whatsapp.com -> Whatsapp, mercadolivre.com.br -> Mercadolivre.
+    labels = [p for p in domain.split(".")[:-1] if p not in ("com", "co", "net", "org", "gov", "edu")] or [domain]
+    label = labels[-1]
+    return {"name": name.strip() or label[:1].upper() + label[1:], "domains": [domain],
             "session_minutes": session_minutes, "rest_minutes": rest_minutes}
 
 
@@ -110,9 +113,10 @@ BROWSERS = ("chrome", "chromium", "firefox", "brave", "microsoft-edge", "vivaldi
 # " — Navegação privativa do Mozilla Firefox", " - Google Chrome (Anônima)".
 _BROWSER_SUFFIX = re.compile(r"\s[-–—]\s[^-–—]*(Google Chrome|Chromium|Firefox|Brave|Microsoft Edge|Vivaldi|Opera|"
                              r"LibreWolf|Zen Browser|Floorp|Waterfox|Epiphany|Falkon)[^-–—]*$")
+_PRIVATE = re.compile(r"\s—\s(navegação privativa|private browsing)$", re.I)  # "— Mozilla Firefox — navegação privativa"
 _AUDIO = re.compile(r"\s-\s(Reprodução de áudio|Audio playing)$")
 _HARD = re.compile(r"\s[-–—]\s")  # "Vídeo - YouTube", "TikTok - Make Your Day"
-_SOFT = re.compile(r"\s[•|·]\s")  # "Login • Instagram", "Pin em ... | Pinterest"
+_SOFT = re.compile(r"\s[•|·/]\s")  # "Login • Instagram", "Pin em ... | Pinterest", "Início / X"
 _COUNTER = re.compile(r"^\(\d+\+?\)\s*")  # "(3) Instagram"
 _URL = re.compile(r"^(?:[a-z][a-z0-9+.-]*://)?([a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,})(?::\d+)?(?:[/?#]\S*)?$")
 _SEARCH = re.compile(r"pesquis|search|busca|bing|duckduckgo|google")
@@ -125,7 +129,8 @@ def is_browser(wm_class: str, title: str) -> bool:
 
 def tab_title(window_title: str) -> str:
     """Título da aba a partir do título da janela (tira " - Google Chrome" e afins)."""
-    return _AUDIO.sub("", _BROWSER_SUFFIX.sub("", (window_title or "").strip())).strip()
+    title = _PRIVATE.sub("", (window_title or "").strip())
+    return _AUDIO.sub("", _BROWSER_SUFFIX.sub("", title)).strip()
 
 
 def site_for_host(host: str, rules: dict) -> str | None:
@@ -155,7 +160,8 @@ def site_for_title(title: str, rules: dict) -> str | None:
     checks = (
         lambda n: t == n,
         lambda n: len(hard) > 1 and hard[-1] == n,
-        lambda n: len(soft) > 1 and (soft[-1] == n or soft[-1].startswith(n + " ") or soft[-1].endswith(" " + n)),
+        lambda n: len(soft) > 1 and (soft[-1] == n or len(n) > 1 and (soft[-1].startswith(n + " ")
+                                                                     or soft[-1].endswith(" " + n))),
         lambda n: re.search(rf"\s(on|no) {re.escape(n)}:", t),
         lambda n: len(hard) == 2 and hard[0] == n and not _SEARCH.search(hard[1]),
     )
@@ -210,7 +216,8 @@ def status(rules: dict, sites: dict, key: str, now: float) -> SiteStatus:
     until = st.get("rest_until", 0)
     left = math.ceil(until - now) if until > now else 0
     session = int(rule["session_minutes"] * 60)
-    return SiteStatus(key, rule["name"], min(st.get("used", 0), session), session, left, until if left else 0)
+    used = 0 if until and not left else min(st.get("used", 0), session)  # descanso vencido = sessão nova
+    return SiteStatus(key, rule["name"], used, session, left, until if left else 0)
 
 
 def tick(sites: dict, rules: dict, now: float, focused: str | None, human: bool) -> bool:

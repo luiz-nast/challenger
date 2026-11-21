@@ -83,6 +83,25 @@ class Harness:
         return self.d.state["sites"].get(key, {}).get("used", 0)
 
 
+class StoreTest(unittest.TestCase):
+    def setUp(self):
+        fresh()
+
+    def test_broken_files_fall_back_to_defaults(self):
+        store.config_file().parent.mkdir(parents=True, exist_ok=True)
+        store.config_file().write_text('{"rules": {"x.com": {"name": 3}}, "camera": {"dark_mean": "35", "smoothing": -1}}')
+        store.state_file().parent.mkdir(parents=True, exist_ok=True)
+        store.state_file().write_text("{corrompido")
+        cfg = store.load_config()
+        self.assertEqual(cfg["rules"], engine.default_rules())
+        self.assertEqual(cfg["camera"], store.CAMERA_DEFAULTS)
+        self.assertEqual(store.load_state()["sites"], {})
+
+    def test_atomic_write_leaves_no_temp_files(self):
+        store.save_state({"sites": {"youtube.com": {"used": 5, "rest_until": 0}}, "live": {}})
+        self.assertEqual([p.name for p in store.state_file().parent.iterdir()], ["state.json"])
+
+
 class CountingTest(unittest.TestCase):
     def setUp(self):
         fresh()

@@ -13,8 +13,12 @@ Antes da primeira decisão o estado é "desconhecido", que conta (falha fechada)
 from __future__ import annotations
 
 import logging
+import os
 import time
 from pathlib import Path
+
+os.environ.setdefault("OPENCV_LOG_LEVEL", "ERROR")
+os.environ.setdefault("OPENCV_VIDEOIO_V4L_SELECT_TIMEOUT", "2")  # câmera travada segura o ciclo 2 s no máximo
 
 log = logging.getLogger("challenger")
 MODEL = Path(__file__).with_name("face_detection_yunet_2023mar.onnx")
@@ -95,6 +99,7 @@ class Camera:
         """Leitura crua agora: voce/tapada/vazia/erro, ou None no aquecimento."""
         if not self._cap and not self._open():
             return "erro"
+        self._cap.grab()  # descarta o quadro que estava na fila
         ok, frame = self._cap.read()
         if not ok:
             self.close()
@@ -102,10 +107,16 @@ class Camera:
             return "erro"
         if time.monotonic() - self._opened_at < WARMUP_SECONDS:
             return None
-        if frame.shape[1::-1] != tuple(self._detector.getInputSize()):
-            self._detector.setInputSize(frame.shape[1::-1])
-        faces = self._detector.detect(frame)[1]
-        return classify(frame, 0 if faces is None else len(faces), self.dark_mean, self.dark_std)
+        try:
+            if frame.shape[1::-1] != tuple(self._detector.getInputSize()):
+                self._detector.setInputSize(frame.shape[1::-1])
+            faces = self._detector.detect(frame)[1]
+            return classify(frame, 0 if faces is None else len(faces), self.dark_mean, self.dark_std)
+        except Exception as e:  # noqa: BLE001 - erro com a câmera aberta também é "erro" (conta) e desliga a luz
+            log.warning("Câmera falhou: %s", e)
+            self.close()
+            self._failed_at = time.monotonic()
+            return "erro"
 
     def sample(self) -> str:
         """Estado suavizado para quem está contando; liga a câmera se preciso."""
