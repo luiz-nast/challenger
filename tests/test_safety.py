@@ -4,7 +4,9 @@ Teste de código: nenhum módulo tem chamada que feche aba ou janela, recarregue
 pause mídia, mate processo ou grave quadro; a extensão do GNOME só lê a janela em foco.
 """
 
+import json
 import re
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -19,6 +21,7 @@ FORBIDDEN = {
     "mídia do navegador": r"org\.mpris|MediaPlayer2|PlayPause|\.Pause\b",
     "gravar quadro da câmera": r"imwrite|VideoWriter|imencode|\.tofile\(|np\.save|savez",
     "abrir URL": r"webbrowser|xdg-open|gio\", \"open|Gtk\.show_uri|launch_default_for_uri",
+    "rede (nada sai do computador)": r"urllib\.request|http\.client|\brequests\b|\bsocket\b|aiohttp|websocket|SocketClient",
 }
 
 
@@ -41,6 +44,27 @@ class SafetyTest(unittest.TestCase):
         calls = set(re.findall(r"\bw\.(\w+)\(", js))
         self.assertEqual(calls, {"get_wm_class", "get_title", "get_pid"})
         self.assertNotRegex(js, r"activate|delete|kill|close|move|resize|minimize|make_above")
+
+    def test_gnome_extension_metadata(self):
+        meta = json.loads((EXTENSION.parent / "metadata.json").read_text())
+        self.assertEqual(meta["uuid"], "challenger@luiz-nast.github.io")
+        self.assertIn("50", meta["shell-version"])
+        self.assertIn('EXT_ID=challenger@luiz-nast.github.io', (ROOT / "install.sh").read_text())
+
+    def test_readme_has_what_the_prompt_asks(self):
+        readme = (ROOT / "README.md").read_text()
+        for needle in ("## Por que existe", "## Como conta o tempo", "Rosto detectado", "Câmera tapada",
+                       "Câmera desligada", "Sala vazia", "## Regras", "20 min", "4 h", "7 min", "15 min",
+                       "## Privacidade", "## Instalar e rodar", "inicia sozinho com a", "./install.sh --remove"):
+            self.assertIn(needle, readme)
+
+    def test_private_files_are_ignored(self):
+        names = ["config.json", "state.json", "x.log", "frame.jpg", "frame.png", "a.npy", "state.json.1.2.tmp",
+                 "video.webm", "PROMPT.md"]
+        r = subprocess.run(["git", "check-ignore", *names], cwd=ROOT, capture_output=True, text=True)
+        self.assertEqual(sorted(r.stdout.split()), sorted(names))
+        r = subprocess.run(["git", "check-ignore", "docs/prints/janela-claro.png"], cwd=ROOT)
+        self.assertEqual(r.returncode, 1)  # prints de exemplo vão para o repo
 
     def test_camera_frames_never_leave_memory(self):
         text = (ROOT / "challenger" / "camera.py").read_text()

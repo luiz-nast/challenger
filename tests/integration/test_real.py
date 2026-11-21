@@ -95,7 +95,11 @@ class Browser:
                 'user_pref("browser.shell.checkDefaultBrowser", false);\n'
                 'user_pref("datareporting.policy.dataSubmissionEnabled", false);\n'
                 'user_pref("browser.aboutwelcome.enabled", false);\n'
-                'user_pref("trailhead.firstrun.didSeeAboutWelcome", true);\n')
+                'user_pref("trailhead.firstrun.didSeeAboutWelcome", true);\n'
+                'user_pref("datareporting.policy.dataSubmissionPolicyBypassNotification", true);\n'
+                'user_pref("browser.startup.homepage_override.mstone", "ignore");\n'
+                'user_pref("startup.homepage_welcome_url", "");\n'
+                'user_pref("browser.startup.firstrunSkipsHomepage", true);\n')
             cmd = ["firefox", "--new-instance", "--profile", self.profile, url]
         self.proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 
@@ -136,6 +140,12 @@ class RealEnvironmentTest(unittest.TestCase):
         self.assertFalse(f.locked, "desbloqueie a tela")
         self.assertIn(f.source, ("challenger", "maverick"))
         print(f"\n  extensão: {f.source}; janela em foco: {f.wm_class!r}")
+
+    def test_service_starts_with_the_session(self):
+        r = subprocess.run(["systemctl", "--user", "is-enabled", "challenger.service"], capture_output=True, text=True)
+        self.assertEqual(r.stdout.strip(), "enabled")
+        wants = Path.home() / ".config/systemd/user/graphical-session.target.wants/challenger.service"
+        self.assertTrue(wants.exists())
 
     def test_real_camera(self):
         """A câmera abre, aquece e dá uma leitura que não é erro. Nada vai para disco."""

@@ -108,11 +108,11 @@ def new_rule(domain: str, session_minutes: int, rest_minutes: int, name: str = "
 # --- Qual site está na janela em foco -----------------------------------------------
 
 BROWSERS = ("chrome", "chromium", "firefox", "brave", "microsoft-edge", "vivaldi", "opera", "librewolf",
-            "epiphany", "falkon", "floorp", "waterfox", "crx_")
-# Último trecho com a marca do navegador: " - Google Chrome", " — Mozilla Firefox",
-# " — Navegação privativa do Mozilla Firefox", " - Google Chrome (Anônima)".
+            "epiphany", "falkon", "floorp", "waterfox", "torbrowser", "zen-browser", "zen_browser", "crx_")
+# Do trecho com a marca do navegador até o fim: " - Google Chrome", " — Mozilla Firefox",
+# " — Navegação privativa do Mozilla Firefox", " - Google Chrome (Anônima)", " - Google Chrome - Perfil".
 _BROWSER_SUFFIX = re.compile(r"\s[-–—]\s[^-–—]*(Google Chrome|Chromium|Firefox|Brave|Microsoft Edge|Vivaldi|Opera|"
-                             r"LibreWolf|Zen Browser|Floorp|Waterfox|Epiphany|Falkon)[^-–—]*$")
+                             r"LibreWolf|Zen Browser|Floorp|Waterfox|Epiphany|Falkon|Tor Browser).*$")
 _PRIVATE = re.compile(r"\s—\s(navegação privativa|private browsing)$", re.I)  # "— Mozilla Firefox — navegação privativa"
 _AUDIO = re.compile(r"\s-\s(Reprodução de áudio|Audio playing)$")
 _HARD = re.compile(r"\s[-–—]\s")  # "Vídeo - YouTube", "TikTok - Make Your Day"

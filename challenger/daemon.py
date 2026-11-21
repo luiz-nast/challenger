@@ -22,6 +22,7 @@ HIDE_AFTER_SECONDS = 2  # a pílula fica 2 s com o último conteúdo, como no Ma
 STALE_SECONDS = 5  # linha de trabalho travada: a tela de descanso sai para não prender o desktop
 RENDER_MS = 250
 BUS_NAME = "io.github.luiz_nast.Challenger.Daemon"
+OWN_WM_CLASS = "challenger-daemon"  # pílula e tela de descanso: foco nelas não conta como troca
 
 
 @dataclass
@@ -49,6 +50,7 @@ class Daemon:
         self._visible_until = 0.0
         self._pill = ("", "idle")  # o que a pílula mostra; fica igual nos segundos finais
         self._last_log = None
+        self._last_focus = focus.Focus(None)
 
     def _reload_config(self) -> None:
         """A janela grava a config; o daemon a relê quando o arquivo muda."""
@@ -61,6 +63,9 @@ class Daemon:
         self._reload_config()
         rules = engine.rules_today(self.config, engine.day_of(now))
         f = self.get_focus()
+        if f.wm_class.lower() == OWN_WM_CLASS and self.snapshot:  # clique na própria tela: nada mudou
+            f = self._last_focus
+        self._last_focus = f
         site = engine.site_for_window(f.wm_class, f.title, rules) if f.source and not f.locked else None
         before = engine.status(rules, self.state["sites"], site, now) if site else None
         if before and not before.resting:  # câmera só quando um site liberado está em foco

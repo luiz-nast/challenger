@@ -1,9 +1,18 @@
 # Nada pessoal no repositório (público)
 PROMPT.md
 *.log
+*.tmp
 *.jpg
 *.jpeg
+*.png
+!docs/prints/*.png
+*.npy
+*.npz
+*.pkl
 *.mp4
+*.webm
+*.avi
+*.mkv
 config.json
 state.json
 .venv/

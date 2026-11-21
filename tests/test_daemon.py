@@ -219,6 +219,19 @@ class RestAndOverlayTest(unittest.TestCase):
         h.run(1)
         self.assertFalse(h.d.cover.visible)
 
+    def test_focus_on_own_cover_keeps_it(self):
+        """Se o clique na tela de descanso desse foco a ela, nada muda: o site continua coberto."""
+        h = Harness()
+        h.window(CHROME, "Instagram - Google Chrome")
+        h.run(7 * MIN + 1)
+        self.assertTrue(h.d.cover.visible)
+        h.window("Challenger-daemon", "Challenger")
+        h.run(2)
+        self.assertTrue(h.d.cover.visible)
+        h.window("org.gnome.Nautilus", "Pasta")
+        h.run(1)
+        self.assertFalse(h.d.cover.visible)
+
     def test_rest_survives_restart(self):
         h = Harness()
         h.window(CHROME, "Vídeo - YouTube - Google Chrome")

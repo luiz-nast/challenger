@@ -17,7 +17,10 @@ import os
 os.environ["GDK_BACKEND"] = "x11"
 
 import gi  # noqa: E402
+from gi.repository import GLib  # noqa: E402
 
+# WM_CLASS das janelas X daqui ("Challenger-daemon"): o daemon reconhece foco nelas. Antes do GTK.
+GLib.set_prgname("challenger-daemon")
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
 gi.require_version("GdkX11", "3.0")

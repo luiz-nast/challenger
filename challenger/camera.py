@@ -28,11 +28,12 @@ LABELS = {"voce": "você", "tapada": "câmera tapada", "erro": "sem câmera", "v
 WARMUP_SECONDS = 2.0  # a exposição automática começa escura (medido: ~1,5 s)
 IDLE_CLOSE_SECONDS = 10
 RETRY_SECONDS = 5
+REMEMBER_SECONDS = 300  # reaberta em até 5 min, a câmera começa da última decisão (não reconta sala vazia)
 
 
 def classify(frame, faces: int, dark_mean: float = 35, dark_std: float = 10) -> str:
     """Leitura de um quadro (array numpy) já passado pelo detector de rosto."""
-    if frame is None:
+    if frame is None or frame.size == 0:
         return "erro"
     if faces:
         return "voce"
@@ -68,6 +69,7 @@ class Camera:
         self.smoother = Smoother(cfg.get("smoothing", 3))
         self.device, self._cap, self._detector = device, None, None
         self._opened_at = self._last_use = self._failed_at = 0.0
+        self._remembered = ("desconhecido", -REMEMBER_SECONDS)  # (estado, quando fechou por ociosidade)
 
     @property
     def is_open(self) -> bool:
@@ -92,6 +94,9 @@ class Camera:
             self._failed_at = time.monotonic()
             return False
         self._cap, self._opened_at = cap, time.monotonic()
+        state, closed_at = self._remembered
+        if self._opened_at - closed_at < REMEMBER_SECONDS:
+            self.smoother.state = state
         log.info("Câmera ligada")
         return True
 
@@ -127,6 +132,7 @@ class Camera:
     def idle(self) -> None:
         """Ninguém precisa da câmera agora: fecha depois de `IDLE_CLOSE_SECONDS`."""
         if self._cap and time.monotonic() - self._last_use > IDLE_CLOSE_SECONDS:
+            self._remembered = (self.smoother.state, time.monotonic())
             self.close()
 
     def close(self) -> None:

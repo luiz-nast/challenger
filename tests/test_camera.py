@@ -25,6 +25,7 @@ class ClassifyTest(unittest.TestCase):
         self.assertEqual(classify(FLAT, faces=0), "tapada")
         self.assertEqual(classify(None, faces=0), "erro")
         self.assertEqual(classify(DIM, faces=1), "voce")  # rosto vence o escuro
+        self.assertEqual(classify(np.empty((0, 0, 3), dtype=np.uint8), faces=0), "erro")  # sem imagem
 
     def test_what_counts(self):
         self.assertEqual({s for s in ("voce", "tapada", "erro", "vazia", "desconhecido") if s in COUNTS},
@@ -176,6 +177,21 @@ class CameraTest(unittest.TestCase):
         self.assertTrue(cap.released)
         self.assertFalse(cam.is_open)
         self.assertEqual(cam.smoother.state, "desconhecido")
+
+    def test_reopen_soon_remembers_empty_room(self):
+        """Agente voltando ao site logo depois: não reconta a sala vazia como "desconhecido"."""
+        cap = FakeCap([ROOM] * 3)
+        cam, states = self.sample(fake_cv2(cap))
+        self.assertEqual(states[-1], "vazia")
+        with mock.patch.object(camera, "IDLE_CLOSE_SECONDS", -1):
+            cam.idle()
+        with mock.patch.dict(sys.modules, {"cv2": fake_cv2(FakeCap([ROOM] * 3))}):
+            self.assertEqual(cam.sample(), "vazia")
+        cam.close()
+        with mock.patch.object(camera, "IDLE_CLOSE_SECONDS", -1), mock.patch.object(camera, "REMEMBER_SECONDS", 0):
+            cam._remembered = ("vazia", 0)
+            with mock.patch.dict(sys.modules, {"cv2": fake_cv2(FakeCap([ROOM] * 3))}):
+                self.assertEqual(cam.sample(), "desconhecido")  # muito tempo depois: começa do zero (conta)
 
     def test_warmup_frames_are_ignored(self):
         with mock.patch.object(camera, "WARMUP_SECONDS", 60):

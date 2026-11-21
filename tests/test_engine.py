@@ -90,6 +90,13 @@ class MatchTest(unittest.TestCase):
                   "Vídeo - YouTube - Reprodução de áudio - Google Chrome"):
             self.assertIn(self.site(t, "firefox"), ("youtube.com", "instagram.com"), t)
 
+    def test_other_browsers_and_chrome_profile_suffix(self):
+        self.assertEqual(self.site("Vídeo - YouTube - Chromium", "chromium"), "youtube.com")
+        self.assertEqual(self.site("Vídeo - YouTube - Google Chrome - Trabalho"), "youtube.com")
+        self.assertEqual(self.site("Instagram - Brave", "brave-browser"), "instagram.com")
+        self.assertEqual(self.site("Pinterest - Microsoft Edge", "microsoft-edge"), "pinterest.com")
+        self.assertEqual(self.site("Google Chrome tips - YouTube - Google Chrome"), "youtube.com")
+
     def test_only_browsers(self):
         self.assertIsNone(engine.site_for_window("org.gnome.TextEditor", "YouTube", RULES))
         self.assertIsNone(engine.site_for_window("Claude", "Vídeo - YouTube", RULES))
