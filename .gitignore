@@ -1,0 +1,15 @@
+# Nada pessoal no repositório (público)
+PROMPT.md
+*.log
+*.jpg
+*.jpeg
+*.mp4
+config.json
+state.json
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.claude/
+graphify-out/

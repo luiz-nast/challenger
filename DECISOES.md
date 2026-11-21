@@ -1,0 +1,90 @@
+# Decisões
+
+Cada decisão tomada sem perguntar, com o motivo. A mais simples e mais segura vence.
+
+## Ambiente (medido em 21/11/2026)
+
+Ubuntu 26.04.1, GNOME Shell 50.1 em **Wayland**, Python do sistema 3.14 (`/usr/bin/python3`,
+com PyGObject, GTK 3, GTK 4 + libadwaita 1.9, numpy), câmera integrada em `/dev/video0` (acesso
+do usuário por ACL do logind, sem grupo `video`), Google Chrome nativo em Wayland, Firefox snap.
+O `python3` do PATH é o do Homebrew (3.15, sem PyGObject): tudo usa `/usr/bin/python3`.
+
+## D1. Linguagem e bibliotecas: Python + GTK, igual ao Maverick
+
+Python do sistema, PyGObject, GTK 3 para pílula e tela de bloqueio, GTK 4 + libadwaita para a
+janela. É o que o Maverick usa e está instalado. Testes com `unittest` (roda também com pytest).
+
+## D2. Janela em foco: extensão mínima do GNOME Shell
+
+No Wayland nenhum programa comum sabe qual janela está em foco; só o GNOME Shell. O Chrome dos
+agentes roda nativo em Wayland, então nem o XWayland sabe dele. Opções avaliadas:
+
+| Opção | Por que não / por que sim |
+|---|---|
+| Sessão X11 | Exige sair da sessão e mudar o login; derrubaria os agentes. Não. |
+| `org.gnome.Shell.Introspect` / `Eval` | Bloqueados no GNOME 50 para apps comuns. Não. |
+| Acessibilidade (AT-SPI) | Precisa ligar `toolkit-accessibility` e **reabrir o Chrome** dos agentes; o Chrome nem dá a URL. Não. |
+| Extensão mínima do GNOME Shell | 30 linhas, só lê a janela em foco e responde no D-Bus. **Sim.** |
+
+O Challenger traz a extensão `challenger@luiz-nast.github.io` (`Get() -> (wm_class, título, pid)`).
+O GNOME no Wayland só carrega extensão nova depois de sair e entrar na sessão. Até lá o Challenger
+usa a extensão do Maverick, que já está instalada e tem a mesma resposta. Sem nenhuma das duas,
+nada é contado e a janela avisa.
+
+## D3. Site pelo título da janela, não pela URL
+
+Sem acessibilidade não há URL. O título da janela do navegador traz o título da aba
+(`Vídeo - YouTube - Google Chrome`). Regra (aprendida no Maverick): tira o sufixo do navegador e o
+contador `(3) `; o site conta se o nome dele é o título inteiro, o último trecho (separado por
+` - `, ` | `, ` • ` etc.), `no/on Instagram:`, ou o primeiro trecho quando o título tem só dois
+trechos e não é de busca (`TikTok - Make Your Day`). Endereço no título (o navegador mostra a URL
+como título enquanto carrega: `m.youtube.com/watch?...`, `youtu.be/...`) casa pelos domínios da
+regra, com subdomínios.
+
+## D4. Câmera: OpenCV com YuNet, num venv sem sudo
+
+- OpenCV 5 tirou o Haar cascade do pacote principal; o detector leve que vem no OpenCV é o
+  `FaceDetectorYN` (YuNet). O modelo tem 227 KB, licença MIT (opencv_zoo), e vai no repositório.
+- OpenCV vem do pip (`opencv-python-headless`) num venv com `--system-site-packages`, criado pelo
+  `install.sh` em `~/.local/share/challenger/venv`. Assim nada pede sudo. Quem preferir pode usar
+  `sudo apt install python3-opencv` (também tem `FaceDetectorYN`).
+- A câmera só abre quando um site da lista, liberado, está em foco, e fecha 10 s depois.
+- Ordem: erro/sem câmera → "erro" (conta); rosto → "você" (conta); imagem escura ou uniforme →
+  "tapada" (conta); senão → "sala vazia" (não conta).
+- Limiares padrão (configuráveis em `~/.config/challenger/config.json`, chave `camera`): brilho
+  médio < 35 ou desvio-padrão < 10 = tapada. Medido aqui: quarto escuro dá média ~6, desvio ~4.
+- Suavização: o estado só muda depois de 3 leituras seguidas iguais (1 por segundo). Antes da
+  primeira decisão o estado é "desconhecido", que **conta** (falha fechada).
+- Nenhum quadro vai para disco: a imagem vive só na memória da função que a analisa.
+
+## D5. Mudança de regra: adicionar vale na hora, o resto vale amanhã
+
+- Adicionar um site novo só endurece: vale na hora.
+- Qualquer outra mudança (afrouxar, endurecer ou remover) vale a partir da próxima meia-noite.
+  Uma regra só é mais fácil de decorar do que "endurecer vale na hora, afrouxar não".
+- A config guarda `rules` (as de hoje) e `next = {from: "AAAA-MM-DD", rules}`. As regras que valem
+  são calculadas pela data: ninguém precisa gravar nada à meia-noite, e funciona com o computador
+  desligado na virada.
+- O estado de um site removido fica guardado: se ele voltar, um descanso em curso continua.
+
+## D6. Contagem e descanso
+
+- 1 tick por segundo; cada tick com as duas condições soma 1 s.
+- Ao atingir a sessão, `rest_until = agora + descanso` (hora absoluta). Descanso pelo relógio,
+  sobrevive a reinício do app e do computador. Ao acabar, sessão nova com contador zerado.
+- Se uma regra nova (na virada) tem sessão menor que o já usado, o site entra em descanso na hora.
+- Tela bloqueada: nada conta (a extensão do GNOME para enquanto a tela está bloqueada).
+
+## D7. Bloqueio: janela por cima, nunca toca no navegador
+
+- Janela GTK 3 via XWayland por cima de tudo, em cada monitor, sem pegar o foco do teclado: a aba
+  continua em foco, então Ctrl+Tab, Ctrl+W e Alt+Tab funcionam e a tela some na hora.
+- Clique e Esc não fecham (a janela não aceita foco e recusa o pedido de fechar).
+- O Challenger não chama nada no navegador: não fecha aba, não recarrega, não muda URL, não pausa
+  mídia (o Maverick pausava; aqui pausar mexeria na página de um agente). Um teste garante que o
+  código não tem essas chamadas.
+
+## D8. Repositório
+
+- `PROMPT.md` fica fora do Git (`.gitignore`): é a conversa comigo, não o produto.
+- Prints em `docs/prints/` são gerados com dados de exemplo, nunca da tela real.
