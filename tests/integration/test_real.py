@@ -25,12 +25,14 @@ os.environ["GDK_BACKEND"] = "x11"
 from challenger import camera, engine, focus, store  # noqa: E402
 
 PAGE = """<!doctype html><meta charset="utf-8"><title>{title}</title>
-<body style="font:40px sans-serif;background:#eee"><h1>{title}</h1><script>
+<body style="font:40px sans-serif;background:{bg};margin:0"><h1>{title}</h1><script>
 const id = Math.random().toString(36).slice(2);
 setInterval(() => fetch('/ping?id=' + id + '&href=' + encodeURIComponent(location.href)
   + '&vis=' + document.visibilityState), 500);
 </script>"""
-PAGES = {"/yt": "Vídeo de teste - YouTube", "/ig": "Login • Instagram", "/news": "Notícias de teste - Jornal"}
+PAGES = {"/yt": "Vídeo de teste - YouTube", "/ig": "Login • Instagram", "/news": "Notícias de teste - Jornal",
+         "/full": "Tela cheia de teste - YouTube"}
+SHOTS = Path(tempfile.gettempdir()) / "challenger-prints-reais"
 
 
 class Server(http.server.ThreadingHTTPServer):
@@ -56,7 +58,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             body = b"ok"
         else:
             self.server.hits[path] = self.server.hits.get(path, 0) + 1
-            body = PAGE.format(title=PAGES.get(path, "?")).encode()
+            body = PAGE.format(title=PAGES.get(path, "?"), bg="#ff00ff" if path == "/full" else "#eee").encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
@@ -275,6 +277,42 @@ class RealBrowsersTest(unittest.TestCase):
         self.assertLess(time.monotonic() - last, 3, "a aba parou de responder (fechada?)")
         self.assertTrue(b.alive(), "o navegador de teste fechou")
         return d
+
+    def test_chrome_fullscreen_cover_on_top(self):
+        """Chrome de teste em tela cheia (página magenta): a tela de descanso fica por cima.
+        Confere pelo print da tela (portal do desktop) que o centro e o topo estão escuros."""
+        import sys
+
+        b = Browser("chrome", self.server.url("/full"), fullscreen=True)
+        self.addCleanup(b.close)
+        self.assertTrue(wait_for(lambda: PAGES["/full"] in focused_title(), timeout=30), "a janela não ficou em foco")
+        d = self.daemon()
+        self.addCleanup(lambda: (d.cover.hide(), d.pill.hide(), d.pill.destroy()))
+        self.pump(d, 9)
+        self.assertTrue(d.cover.visible, "a tela de descanso não apareceu")
+        SHOTS.mkdir(exist_ok=True)
+        shot = SHOTS / "overlay-tela-cheia.png"
+        r = subprocess.run([sys.executable, str(Path(__file__).resolve().parents[2] / "tools" / "screenshot.py"),
+                            str(shot)], capture_output=True, text=True)
+        self.pump(d, 0.5)
+        if r.returncode != 0:
+            self.skipTest("o portal de print não respondeu (sem permissão para este app)")
+        import gi
+
+        gi.require_version("GdkPixbuf", "2.0")
+        from gi.repository import GdkPixbuf
+
+        pix = GdkPixbuf.Pixbuf.new_from_file(str(shot))
+        w, h, n, stride, data = pix.get_width(), pix.get_height(), pix.get_n_channels(), pix.get_rowstride(), pix.get_pixels()
+
+        def rgb(x, y):
+            i = y * stride + x * n
+            return tuple(data[i:i + 3])
+
+        for x, y in ((w // 2, h // 2), (w // 4, h - 20), (w // 2, 5)):
+            r_, g_, b_ = rgb(x, y)
+            self.assertLess(max(r_, g_, b_), 60, f"pixel ({x},{y}) = {(r_, g_, b_)}: a página magenta aparece")
+        print(f"\n  print da tela cheia coberta: {shot}")
 
     def test_chrome(self):
         self.run_browser("chrome", "/yt", "youtube.com")
