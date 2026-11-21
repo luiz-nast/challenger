@@ -8,11 +8,11 @@ Duas linhas de execução, como no Maverick: a de trabalho pergunta ao D-Bus e �
 from __future__ import annotations
 
 import logging
+import os
 import signal
 import threading
 import time
 from dataclasses import dataclass
-from datetime import datetime
 
 from . import engine, focus, store
 from .camera import COUNTS, Camera
@@ -20,6 +20,8 @@ from .camera import COUNTS, Camera
 log = logging.getLogger("challenger")
 HIDE_AFTER_SECONDS = 2  # a pílula fica 2 s com o último conteúdo, como no Maverick
 STALE_SECONDS = 5  # linha de trabalho travada: a tela de descanso sai para não prender o desktop
+HUNG_SECONDS = 10  # linha de desenho travada com a tela por cima: o daemon sai e o systemd religa
+SLOW_SECONDS = 1.5
 RENDER_MS = 250
 BUS_NAME = "io.github.luiz_nast.Challenger.Daemon"
 OWN_WM_CLASS = "challenger-daemon"  # pílula e tela de descanso: foco nelas não conta como troca
@@ -51,6 +53,7 @@ class Daemon:
         self._pill = ("", "idle")  # o que a pílula mostra; fica igual nos segundos finais
         self._last_log = None
         self._last_focus = focus.Focus(None)
+        self._rendered_at = time.monotonic()
 
     def _reload_config(self) -> None:
         """A janela grava a config; o daemon a relê quando o arquivo muda."""
@@ -96,6 +99,7 @@ class Daemon:
         """Só na linha principal. Site em descanso em foco: cobre a tela, e continua coberta
         mesmo se a linha de trabalho atrasar (falha fechada). Senão a pílula aparece enquanto
         o site está em foco, mais `HIDE_AFTER_SECONDS`."""
+        self._rendered_at = time.monotonic()
         snap = self.snapshot
         if not self.pill or snap is None:
             return False
@@ -106,7 +110,7 @@ class Daemon:
             self.pill.hide()
             left = site.rest_until - self.clock()
             self.cover.show_block(f"{site.name} em descanso", engine.fmt_long(left),
-                                  f"Libera às {datetime.fromtimestamp(site.rest_until):%H:%M}.", f"⛔ {site.pill}")
+                                  f"Libera às {engine.fmt_clock(site.rest_until)}.", f"⛔ {site.pill}")
             return False
         self.cover.hide()
         if site:
@@ -130,7 +134,14 @@ class Daemon:
                 self.tick()
             except Exception:  # noqa: BLE001 - o contador não pode morrer por um ciclo ruim
                 log.exception("Erro no ciclo")
-            self._stop.wait(max(0.05, 1.0 - (time.monotonic() - started)))
+            spent = time.monotonic() - started
+            if spent > SLOW_SECONDS:
+                log.warning("Ciclo lento: %.1f s (conta só 1 s)", spent)
+            if self.cover and self.cover.visible and time.monotonic() - self._rendered_at > HUNG_SECONDS:
+                # Janela por cima de tudo e ninguém desenhando: sair destrói as janelas X; o systemd religa.
+                log.error("Linha de desenho travada com a tela de descanso; reiniciando")
+                os._exit(1)
+            self._stop.wait(max(0.05, 1.0 - spent))
 
     def run(self) -> int:
         import gi

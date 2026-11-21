@@ -232,6 +232,23 @@ class RestAndOverlayTest(unittest.TestCase):
         h.run(1)
         self.assertFalse(h.d.cover.visible)
 
+    def test_hung_drawing_with_cover_restarts_daemon(self):
+        """Tela de descanso por cima e a linha de desenho parada há 10 s: o daemon sai (o systemd religa)."""
+        from unittest import mock
+
+        from challenger import daemon as daemon_mod
+
+        class Exited(Exception):
+            pass
+
+        h = Harness()
+        h.d.cover.visible = True
+        h.d._rendered_at = -1e9
+        h.d.render = lambda: False  # a linha de desenho não roda
+        with mock.patch.object(daemon_mod.os, "_exit", side_effect=Exited):
+            with self.assertRaises(Exited):
+                h.d._work()
+
     def test_rest_survives_restart(self):
         h = Harness()
         h.window(CHROME, "Vídeo - YouTube - Google Chrome")

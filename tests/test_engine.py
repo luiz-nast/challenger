@@ -166,6 +166,8 @@ class CountTest(unittest.TestCase):
         self.assertEqual(engine.fmt(20 * MIN), "20:00")
         self.assertEqual(engine.fmt_long(4 * HOUR), "4:00:00")
         self.assertEqual(engine.fmt_long(14 * MIN + 59), "14:59")
+        self.assertEqual(engine.fmt_clock(at("2026-11-21 22:41:30")), "22:42")
+        self.assertEqual(engine.fmt_clock(at("2026-11-21 22:41:00")), "22:41")
 
 
 class RuleChangeTest(unittest.TestCase):

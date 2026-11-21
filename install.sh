@@ -28,7 +28,8 @@ fi
 PY=/usr/bin/python3
 if ! $PY -c 'import cv2' 2>/dev/null; then
     VENV=$DATA/challenger/venv
-    [ -x "$VENV/bin/python" ] || $PY -m venv --system-site-packages "$VENV"
+    # --copies: python próprio, fora dos pacotes do sistema; o apport não guarda core dump dele.
+    [ -x "$VENV/bin/python" ] && [ ! -L "$VENV/bin/python" ] || { rm -rf "$VENV"; $PY -m venv --system-site-packages --copies "$VENV"; }
     "$VENV/bin/pip" install --quiet --upgrade opencv-python-headless
     PY=$VENV/bin/python
 fi
@@ -53,6 +54,8 @@ Type=simple
 ExecStart=$BIN daemon
 Restart=always
 RestartSec=3
+# Sem core dump: a memória do processo pode ter um quadro da câmera.
+LimitCORE=0
 
 [Install]
 WantedBy=graphical-session.target

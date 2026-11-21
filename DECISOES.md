@@ -117,7 +117,22 @@ faixa de cor própria (os compartimentos de uma caixa de remédios), e descanso 
 vermelho. Uma ação principal (Adicionar site), erro que diz o que fazer, desfazer para mudança
 pendente.
 
-## D10. Repositório
+## D10. Sem core dump, e vigias contra travamento
+
+- O apport está ligado nesta máquina (`core_pattern` manda para ele). Um core dump do daemon poderia
+  levar um quadro da câmera para `/var/crash`. O serviço tem `LimitCORE=0` e o venv usa uma cópia do
+  Python (`--copies`), que não é binário de pacote.
+- Linha de trabalho travada > 5 s: a tela de descanso sai. Linha de desenho travada > 10 s com a tela
+  por cima: o daemon sai sozinho e o systemd o religa (`Restart=always`).
+- Ciclo que passa de 1,5 s vai para o log: um ciclo lento soma só 1 s.
+
+## D11. Brechas aceitas (compromisso consigo mesmo, não tranca contra o dono)
+
+Parar o serviço, desligar as extensões, editar `config.json` ou `state.json` à mão, mudar o
+relógio (pede senha de administrador), vídeo tocando atrás da tela (não pausamos), Picture-in-Picture,
+"Nomear janela" do Chrome e um agente que põe o site em foco com você na frente.
+
+## D12. Repositório
 
 - `PROMPT.md` fica fora do Git (`.gitignore`): é a conversa comigo, não o produto.
 - Prints em `docs/prints/` são gerados com dados de exemplo, nunca da tela real.

@@ -148,8 +148,7 @@ class SiteRow(Adw.ExpanderRow):
     def update(self, st: engine.SiteStatus, change: str | None, wanted: dict | None, today: dict) -> None:
         self.set_title(st.name)
         if st.resting:
-            until = time.strftime("%H:%M", time.localtime(st.rest_until))
-            self.set_subtitle(f"Descanso até {until}")
+            self.set_subtitle(f"Descanso até {engine.fmt_clock(st.rest_until)}")
             self.time.set_text(f"libera em {engine.fmt_long(st.rest_left)}")
             self.bar.set_fraction(1.0)
         else:

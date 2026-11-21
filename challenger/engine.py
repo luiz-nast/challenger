@@ -32,6 +32,11 @@ def fmt(seconds: float) -> str:
     return f"{seconds // 60:02d}:{seconds % 60:02d}"
 
 
+def fmt_clock(ts: float) -> str:
+    """Hora local HH:MM, com o minuto para cima: "libera às" nunca mostra uma hora que já passou."""
+    return datetime.fromtimestamp(math.ceil(ts / 60) * 60).strftime("%H:%M")
+
+
 def fmt_long(seconds: float) -> str:
     """H:MM:SS a partir de uma hora, senão MM:SS (tempo até liberar)."""
     seconds = max(0, int(seconds))
