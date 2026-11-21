@@ -1,0 +1,6 @@
+{
+  "youtube.com": {"name": "YouTube", "domains": ["youtube.com", "youtu.be", "m.youtube.com"], "session_minutes": 20, "rest_minutes": 240},
+  "instagram.com": {"name": "Instagram", "domains": ["instagram.com"], "session_minutes": 7, "rest_minutes": 15},
+  "tiktok.com": {"name": "TikTok", "domains": ["tiktok.com"], "session_minutes": 7, "rest_minutes": 15},
+  "pinterest.com": {"name": "Pinterest", "domains": ["pinterest.com", "br.pinterest.com", "pin.it"], "session_minutes": 7, "rest_minutes": 15}
+}
