@@ -1,0 +1,240 @@
+"""Daemon com foco falso, câmera falsa e relógio falso: o caminho inteiro de um segundo."""
+
+import shutil
+import unittest
+from datetime import datetime
+
+from challenger import engine, store
+from challenger.daemon import Daemon
+from challenger.focus import Focus
+
+CHROME, FIREFOX = "google-chrome", "firefox_firefox"
+MIN, HOUR = 60, 3600
+
+
+class FakeCamera:
+    def __init__(self, state="voce"):
+        self.state, self.samples, self.open = state, 0, False
+
+    def sample(self):
+        self.samples += 1
+        self.open = True
+        return self.state
+
+    def idle(self):
+        self.open = False
+
+    def close(self):
+        self.open = False
+
+
+class FakeClock:
+    def __init__(self, text="2026-11-21 10:00:00"):
+        self.now = datetime.strptime(text, "%Y-%m-%d %H:%M:%S").timestamp()
+
+    def __call__(self):
+        return self.now
+
+
+class StubPill:
+    def __init__(self):
+        self.visible, self.text, self.state = False, None, None
+
+    def show_message(self, text, state):
+        self.visible, self.text, self.state = True, text, state
+
+    def hide(self):
+        self.visible = False
+
+
+class StubCover:
+    def __init__(self):
+        self.visible, self.args, self.shown = False, None, 0
+
+    def show_block(self, *args):
+        self.visible, self.args = True, args
+        self.shown += 1
+
+    def hide(self):
+        self.visible = False
+
+
+def fresh():
+    shutil.rmtree(store.config_file().parent, ignore_errors=True)
+    shutil.rmtree(store.state_file().parent, ignore_errors=True)
+
+
+class Harness:
+    def __init__(self, cam="voce", clock=None):
+        self.focus = Focus("challenger", "", "")
+        self.cam, self.clock = FakeCamera(cam), clock or FakeClock()
+        self.d = Daemon(ui=False, get_focus=lambda: self.focus, camera=self.cam, clock=self.clock)
+        self.d.pill, self.d.cover = StubPill(), StubCover()
+
+    def window(self, wm_class, title):
+        self.focus = Focus("challenger", wm_class, title)
+
+    def run(self, seconds):
+        for _ in range(seconds):
+            self.d.tick()
+            self.clock.now += 1
+
+    def used(self, key):
+        return self.d.state["sites"].get(key, {}).get("used", 0)
+
+
+class CountingTest(unittest.TestCase):
+    def setUp(self):
+        fresh()
+
+    def test_counts_with_listed_site_in_front(self):
+        h = Harness()
+        h.window(CHROME, "Vídeo - YouTube - Google Chrome")
+        h.run(30)
+        self.assertEqual(h.used("youtube.com"), 30)
+
+    def test_other_app_or_other_site_does_not_count(self):
+        h = Harness()
+        h.window("org.gnome.Nautilus", "YouTube")
+        h.run(10)
+        h.window(CHROME, "Notícias - G1 - Google Chrome")
+        h.run(10)
+        self.assertEqual(h.used("youtube.com"), 0)
+        self.assertEqual(h.cam.samples, 0)  # câmera nem foi lida
+
+    def test_chrome_and_firefox_count_the_same(self):
+        results = []
+        for wm_class, title in ((CHROME, "Login • Instagram - Google Chrome"),
+                                (FIREFOX, "Login • Instagram — Mozilla Firefox")):
+            fresh()
+            h = Harness()
+            h.window(wm_class, title)
+            h.run(42)
+            results.append(h.used("instagram.com"))
+        self.assertEqual(results, [42, 42])
+
+    def test_subdomain_title(self):
+        h = Harness()
+        h.window(CHROME, "m.youtube.com/watch?v=1 - Google Chrome")
+        h.run(5)
+        h.window(CHROME, "youtu.be/abc - Google Chrome")
+        h.run(5)
+        self.assertEqual(h.used("youtube.com"), 10)
+
+    def test_no_extension_or_locked_screen_counts_nothing(self):
+        h = Harness()
+        h.focus = Focus(None)
+        h.run(5)
+        h.focus = Focus("locked", CHROME, "YouTube - Google Chrome", locked=True)
+        h.run(5)
+        self.assertEqual(h.used("youtube.com"), 0)
+
+
+class CameraPathTest(unittest.TestCase):
+    def setUp(self):
+        fresh()
+
+    def check(self, cam_state, counts):
+        h = Harness(cam_state)
+        h.window(CHROME, "TikTok - Make Your Day - Google Chrome")
+        h.run(10)
+        self.assertEqual(h.used("tiktok.com"), 10 if counts else 0, cam_state)
+        self.assertEqual(h.d.state["live"]["camera"], cam_state)
+
+    def test_face(self):
+        self.check("voce", True)
+
+    def test_empty_room(self):
+        self.check("vazia", False)
+
+    def test_covered(self):
+        self.check("tapada", True)
+
+    def test_camera_error(self):
+        self.check("erro", True)
+
+    def test_unknown_counts(self):
+        self.check("desconhecido", True)
+
+    def test_camera_only_while_active_site_in_front(self):
+        h = Harness()
+        h.window(CHROME, "Pinterest - Google Chrome")
+        h.run(7 * MIN)  # até o descanso
+        samples = h.cam.samples
+        h.run(30)  # em descanso, em foco: câmera não precisa
+        self.assertEqual(h.cam.samples, samples)
+        self.assertFalse(h.cam.open)
+
+
+class RestAndOverlayTest(unittest.TestCase):
+    def setUp(self):
+        fresh()
+
+    def test_pill_while_counting_and_idle_when_empty_room(self):
+        h = Harness()
+        h.window(CHROME, "Instagram - Google Chrome")
+        h.run(3)
+        self.assertTrue(h.d.pill.visible)
+        self.assertEqual(h.d.pill.text, "Instagram 00:03 / 07:00")
+        self.assertEqual(h.d.pill.state, "playing")
+        h.cam.state = "vazia"
+        h.run(1)
+        self.assertEqual(h.d.pill.state, "idle")
+
+    def test_cover_shows_in_rest_and_hides_on_switch(self):
+        h = Harness()
+        h.window(CHROME, "Instagram - Google Chrome")
+        h.run(7 * MIN + 1)
+        self.assertTrue(h.d.cover.visible)
+        self.assertFalse(h.d.pill.visible)
+        title, left, text, pill = h.d.cover.args
+        self.assertEqual(title, "Instagram em descanso")
+        self.assertEqual(pill, "⛔ Instagram 07:00 / 07:00")
+        h.window(CHROME, "Notícias - G1 - Google Chrome")  # outra aba
+        h.run(1)
+        self.assertFalse(h.d.cover.visible)
+        h.window(CHROME, "Instagram - Google Chrome")
+        h.run(1)
+        self.assertTrue(h.d.cover.visible)
+        h.window("org.gnome.TextEditor", "notas.txt")  # outro app
+        h.run(1)
+        self.assertFalse(h.d.cover.visible)
+
+    def test_rest_survives_restart(self):
+        h = Harness()
+        h.window(CHROME, "Vídeo - YouTube - Google Chrome")
+        h.run(20 * MIN)
+        until = h.d.state["sites"]["youtube.com"]["rest_until"]
+        self.assertGreater(until, 0)
+        # reinício do app 1 h depois: o descanso continua, com o mesmo fim
+        clock = FakeClock()
+        clock.now = h.clock.now + HOUR
+        h2 = Harness(clock=clock)
+        h2.window(CHROME, "Vídeo - YouTube - Google Chrome")
+        h2.run(1)
+        self.assertEqual(h2.d.state["sites"]["youtube.com"]["rest_until"], until)
+        self.assertTrue(h2.d.cover.visible)
+        self.assertEqual(h2.used("youtube.com"), 20 * MIN)
+        # e libera na hora certa, depois do reinício
+        h2.clock.now = until
+        h2.run(1)
+        self.assertFalse(h2.d.cover.visible)
+        self.assertEqual(h2.used("youtube.com"), 1)
+
+    def test_rule_change_through_config_file_waits_for_midnight(self):
+        clock = FakeClock("2026-11-21 23:59:00")
+        h = Harness(clock=clock)
+        cfg = store.load_config()
+        wanted = engine.rules_wanted(cfg)
+        wanted["instagram.com"]["session_minutes"] = 1
+        store.save_config(engine.change_rules(cfg, wanted, "2026-11-21"))
+        h.window(CHROME, "Instagram - Google Chrome")
+        h.run(60)  # 23:59:00 a 23:59:59: regra antiga (7 min)
+        self.assertFalse(engine.status(engine.default_rules(), h.d.state["sites"], "instagram.com", clock.now).resting)
+        h.run(1)  # 00:00:00: vale 1 min, já usado
+        self.assertGreater(h.d.state["sites"]["instagram.com"]["rest_until"], 0)
+        self.assertTrue(h.d.cover.visible)
+
+
+if __name__ == "__main__":
+    unittest.main()
