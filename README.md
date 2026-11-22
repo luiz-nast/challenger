@@ -77,7 +77,9 @@ tempo até liberar, a hora que libera e a pílula de tempo.
 
 - Some no segundo seguinte quando você troca de aba (Ctrl+Tab) ou de aplicativo (Alt+Tab).
 - Clique e Esc não fecham. A tela não pega o foco do teclado; por isso a troca de aba funciona.
-- Fica por cima até de navegador em tela cheia.
+- Fica por cima até de navegador em tela cheia, e cobre também a barra do GNOME. Print real do
+  teste: [antes](docs/prints/real-tela-cheia-antes.png) (Chrome de teste em tela cheia) e
+  [com a tela de descanso](docs/prints/real-tela-cheia-descanso.png).
 - O navegador continua rodando por trás, intocado: os agentes seguem trabalhando.
 
 ## A pílula
