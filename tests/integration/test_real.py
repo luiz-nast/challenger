@@ -133,9 +133,20 @@ class Browser:
         except (ProcessLookupError, PermissionError, subprocess.TimeoutExpired):
             pass
         subprocess.run(["pkill", "-f", self.profile], check=False)
-        if wait_for(lambda: subprocess.run(["pgrep", "-f", self.profile], capture_output=True).returncode != 0, 10) is None:
-            subprocess.run(["pkill", "-KILL", "-f", self.profile], check=False)
+        if not wait_for(self.gone, 10):
+            # O AppArmor do Firefox snap recusa sinal de fora do snap; um shell dentro do snap pode.
+            pids = " ".join(self.pids())
+            subprocess.run(["snap", "run", "--shell", "firefox", "-c", f"kill {pids}"], check=False, timeout=30)
+            wait_for(self.gone, 10)
         shutil.rmtree(self.profile, ignore_errors=True)
+        if not self.gone():
+            raise AssertionError(f"{self.kind} de teste continuou aberto: {self.pids()}")
+
+    def pids(self):
+        return subprocess.run(["pgrep", "-f", self.profile], capture_output=True, text=True).stdout.split()
+
+    def gone(self):
+        return not self.pids()
 
 
 def idle_ms() -> int:

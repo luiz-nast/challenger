@@ -18,7 +18,12 @@ Mesmo resultado com o Python do serviço (`~/.local/share/challenger/venv/bin/py
 
 ## Integração real (`CHALLENGER_REAL=1 .../venv/bin/python -m pytest -v tests/integration`)
 
-6 passaram, 0 falharam.
+6 passaram, 0 falharam (rodada final às 00:3x de 22/11, com você usando o computador).
+
+Os testes com navegador esperam 15 s sem teclado e mouse e repetem sozinhos se você mexer no meio
+(o foco que você muda não é defeito do Challenger). O Firefox snap recusa sinal de fora do snap
+(AppArmor): o teste fecha o Firefox de teste com um shell dentro do snap e confere que nenhum
+processo ou pasta de teste sobrou.
 
 | Teste | Resultado |
 |---|---|
