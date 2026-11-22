@@ -35,6 +35,14 @@ PAGES = {"/yt": "Vídeo de teste - YouTube", "/ig": "Login • Instagram", "/new
 SHOTS = Path(tempfile.gettempdir()) / "challenger-prints-reais"
 
 
+def pause_real_service(cls):
+    """O Challenger de verdade, se estiver rodando, usaria a câmera e contaria as páginas de teste
+    no seu estado real: fica parado durante o teste e volta no fim."""
+    if subprocess.run(["systemctl", "--user", "is-active", "--quiet", "challenger.service"]).returncode == 0:
+        subprocess.run(["systemctl", "--user", "stop", "challenger.service"], check=True)
+        cls.addClassCleanup(subprocess.run, ["systemctl", "--user", "start", "challenger.service"], check=True)
+
+
 class Server(http.server.ThreadingHTTPServer):
     """Página local que conta requisições e recebe "pings" da página (id muda se recarregar)."""
 
@@ -117,17 +125,41 @@ class Browser:
         return self.proc.poll() is None
 
     def close(self):
+        """Fecha só o navegador de teste: o grupo de processos dele e quem tem a pasta temporária
+        no comando (o Firefox snap passa pelo snap-confine e pode recusar o killpg)."""
         try:
             os.killpg(self.proc.pid, signal.SIGTERM)
             self.proc.wait(10)
-        except (ProcessLookupError, subprocess.TimeoutExpired):
-            try:
-                os.killpg(self.proc.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-        if self.kind == "firefox":  # o Firefox snap deixa filhos fora do grupo
-            subprocess.run(["pkill", "-f", self.profile], check=False)
+        except (ProcessLookupError, PermissionError, subprocess.TimeoutExpired):
+            pass
+        subprocess.run(["pkill", "-f", self.profile], check=False)
+        if wait_for(lambda: subprocess.run(["pgrep", "-f", self.profile], capture_output=True).returncode != 0, 10) is None:
+            subprocess.run(["pkill", "-KILL", "-f", self.profile], check=False)
         shutil.rmtree(self.profile, ignore_errors=True)
+
+
+def idle_ms() -> int:
+    """Há quanto tempo ninguém mexe em teclado ou mouse (GNOME)."""
+    out = subprocess.run(["gdbus", "call", "--session", "--dest", "org.gnome.Mutter.IdleMonitor", "--object-path",
+                          "/org/gnome/Mutter/IdleMonitor/Core", "--method", "org.gnome.Mutter.IdleMonitor.GetIdletime"],
+                         capture_output=True, text=True).stdout
+    return int(out.split()[1].rstrip(",)")) if out else 0
+
+
+def quiet_run(test, fn, attempts=4, quiet_s=15):
+    """Roda `fn` com você sem mexer no computador: espera 15 s sem teclado/mouse e, se você mexer
+    no meio e o teste falhar, tenta de novo (o foco que você muda não é defeito do Challenger)."""
+    for attempt in range(attempts):
+        wait_for(lambda: idle_ms() >= quiet_s * 1000, timeout=1800, step=2)
+        started = time.monotonic()
+        try:
+            return fn()
+        except AssertionError:
+            touched = idle_ms() < (time.monotonic() - started) * 1000
+            if not touched or attempt == attempts - 1:
+                raise
+            print(f"\n  você mexeu no computador durante o teste; repetindo ({attempt + 2}/{attempts})")
+            test.doCleanups()
 
 
 def focused_title():
@@ -151,6 +183,10 @@ class RealEnvironmentTest(unittest.TestCase):
 
     def test_real_camera(self):
         """A câmera abre, aquece e dá uma leitura que não é erro. Nada vai para disco."""
+        stopped = subprocess.run(["systemctl", "--user", "is-active", "--quiet", "challenger.service"]).returncode == 0
+        if stopped:  # o serviço real pode estar com a câmera aberta
+            subprocess.run(["systemctl", "--user", "stop", "challenger.service"], check=True)
+            self.addCleanup(subprocess.run, ["systemctl", "--user", "start", "challenger.service"], check=True)
         before = set(Path(tempfile.gettempdir()).iterdir())
         cam = camera.Camera(store.load_config()["camera"])
         states = []
@@ -190,16 +226,18 @@ class RealBrowsersTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        # O Challenger de verdade, se estiver rodando, contaria as páginas de teste no seu
-        # estado real: fica parado durante o teste e volta no fim.
-        active = subprocess.run(["systemctl", "--user", "is-active", "--quiet", "challenger.service"]).returncode == 0
-        if active:
-            subprocess.run(["systemctl", "--user", "stop", "challenger.service"], check=True)
-            cls.addClassCleanup(subprocess.run, ["systemctl", "--user", "start", "challenger.service"], check=True)
+        pause_real_service(cls)
 
     def setUp(self):
         self.server = Server()
-        self.addCleanup(self.server.shutdown)
+
+    def tearDown(self):
+        self.server.shutdown()
+
+    def fresh(self):
+        """Estado e config de teste do zero (também a cada nova tentativa)."""
+        self.server.hits.clear()
+        self.server.pings.clear()
         shutil.rmtree(store.state_file().parent, ignore_errors=True)
         rules = engine.default_rules()
         # Sessão de 6 s e descanso de 1 h no YouTube e no Instagram, para caber num teste.
@@ -208,8 +246,7 @@ class RealBrowsersTest(unittest.TestCase):
         store.save_config({"rules": rules, "next": None, "camera": store.CAMERA_DEFAULTS})
 
     def daemon(self):
-        from gi.repository import Gtk  # noqa: F401  (GTK 3 via overlay)
-
+        from challenger import overlay  # noqa: F401  (GTK 3 antes de qualquer outro Gtk)
         from challenger.daemon import Daemon
 
         return Daemon(ui=True, camera=FixedCamera())
@@ -228,6 +265,7 @@ class RealBrowsersTest(unittest.TestCase):
             time.sleep(0.02)
 
     def run_browser(self, kind, path, key, fullscreen=False):
+        self.fresh()
         b = Browser(kind, self.server.url(path), fullscreen=fullscreen)
         self.addCleanup(b.close)
         title = PAGES[path]
@@ -281,44 +319,56 @@ class RealBrowsersTest(unittest.TestCase):
     def test_chrome_fullscreen_cover_on_top(self):
         """Chrome de teste em tela cheia (página magenta): a tela de descanso fica por cima.
         Confere pelo print da tela (portal do desktop) que o centro e o topo estão escuros."""
+        quiet_run(self, self._fullscreen)
+
+    def _fullscreen(self):
         import sys
 
-        b = Browser("chrome", self.server.url("/full"), fullscreen=True)
-        self.addCleanup(b.close)
-        self.assertTrue(wait_for(lambda: PAGES["/full"] in focused_title(), timeout=30), "a janela não ficou em foco")
-        d = self.daemon()
-        self.addCleanup(lambda: (d.cover.hide(), d.pill.hide(), d.pill.destroy()))
-        self.pump(d, 9)
-        self.assertTrue(d.cover.visible, "a tela de descanso não apareceu")
-        SHOTS.mkdir(exist_ok=True)
-        shot = SHOTS / "overlay-tela-cheia.png"
-        r = subprocess.run([sys.executable, str(Path(__file__).resolve().parents[2] / "tools" / "screenshot.py"),
-                            str(shot)], capture_output=True, text=True)
-        self.pump(d, 0.5)
-        if r.returncode != 0:
-            self.skipTest("o portal de print não respondeu (sem permissão para este app)")
         import gi
 
         gi.require_version("GdkPixbuf", "2.0")
         from gi.repository import GdkPixbuf
 
-        pix = GdkPixbuf.Pixbuf.new_from_file(str(shot))
-        w, h, n, stride, data = pix.get_width(), pix.get_height(), pix.get_n_channels(), pix.get_rowstride(), pix.get_pixels()
+        self.fresh()
+        tool = Path(__file__).resolve().parents[2] / "tools" / "screenshot.py"
+        SHOTS.mkdir(exist_ok=True)
 
-        def rgb(x, y):
-            i = y * stride + x * n
-            return tuple(data[i:i + 3])
+        def shoot(name):
+            out = SHOTS / name
+            if subprocess.run([sys.executable, str(tool), str(out)], capture_output=True).returncode != 0:
+                self.skipTest("o portal de print não respondeu (sem permissão para este app)")
+            pix = GdkPixbuf.Pixbuf.new_from_file(str(out))
+            w, h, n, stride, data = (pix.get_width(), pix.get_height(), pix.get_n_channels(), pix.get_rowstride(),
+                                     pix.get_pixels())
+            return out, [tuple(data[y * stride + x * n:y * stride + x * n + 3])
+                         for x, y in ((w // 2, h // 2), (w // 4, h - 20), (w // 2, 5))]
 
-        for x, y in ((w // 2, h // 2), (w // 4, h - 20), (w // 2, 5)):
-            r_, g_, b_ = rgb(x, y)
-            self.assertLess(max(r_, g_, b_), 60, f"pixel ({x},{y}) = {(r_, g_, b_)}: a página magenta aparece")
-        print(f"\n  print da tela cheia coberta: {shot}")
+        b = Browser("chrome", self.server.url("/full"), fullscreen=True)
+        self.addCleanup(b.close)
+        title = PAGES["/full"]
+        self.assertTrue(wait_for(lambda: title in focused_title(), timeout=30), "a janela não ficou em foco")
+        time.sleep(1.5)
+        # Controle: sem o Challenger, a página magenta ocupa a tela inteira, até o topo.
+        _, before = shoot("controle-tela-cheia.png")
+        self.assertIn(title, focused_title())
+        for r, g, b_ in before:
+            self.assertTrue(r > 200 and g < 60 and b_ > 200, f"controle: esperava magenta, veio {(r, g, b_)}")
+        d = self.daemon()
+        self.addCleanup(lambda: (d.cover.hide(), d.pill.hide(), d.pill.destroy()))
+        self.pump(d, 9)
+        self.assertTrue(d.cover.visible, "a tela de descanso não apareceu")
+        shot, after = shoot("overlay-tela-cheia.png")
+        self.pump(d, 0.5)
+        self.assertIn(title, focused_title(), "o foco saiu da página de teste")
+        for r, g, b_ in after:
+            self.assertLess(max(r, g, b_), 60, f"com a tela de descanso, o magenta aparece: {(r, g, b_)}")
+        print(f"\n  tela cheia: antes {before[0]}, depois {after[0]}; print: {shot}")
 
     def test_chrome(self):
-        self.run_browser("chrome", "/yt", "youtube.com")
+        quiet_run(self, lambda: self.run_browser("chrome", "/yt", "youtube.com"))
 
     def test_firefox(self):
-        self.run_browser("firefox", "/ig", "instagram.com")
+        quiet_run(self, lambda: self.run_browser("firefox", "/ig", "instagram.com"))
 
 
 if __name__ == "__main__":

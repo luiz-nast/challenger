@@ -84,8 +84,9 @@ regra, com subdomínios.
 
 - Janela GTK 3 via XWayland do tipo **override-redirect** (POPUP), uma por monitor, do tamanho do
   monitor inteiro. O mutter põe esse tipo acima de todas as janelas, inclusive navegador em tela
-  cheia (um DOCK, como a pílula, é rebaixado quando o monitor está em tela cheia). Fica abaixo da
-  barra do GNOME, da visão geral e do Alt+Tab, que continuam usáveis.
+  cheia (um DOCK, como a pílula, é rebaixado quando o monitor está em tela cheia). Medido no print
+  real: cobre também a barra do GNOME (o topo fica escuro). O teclado segue com o navegador e o
+  GNOME, então Ctrl+Tab, Alt+Tab e a tecla Super funcionam.
 - Não pega o foco do teclado: a aba continua em foco, então Ctrl+Tab e Alt+Tab funcionam e a
   tela some no segundo seguinte.
 - Clique e Esc não fecham (a janela não recebe foco e recusa o pedido de fechar).
