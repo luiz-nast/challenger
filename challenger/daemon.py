@@ -37,7 +37,7 @@ class Snapshot:
 
 class Daemon:
     def __init__(self, ui: bool = True, get_focus=focus.get, presence=None, clock=time.time) -> None:
-        self.config, self._config_mtime = store.load_config(), store.mtime(store.config_file())
+        self.config, self._config_mtime = store.load_config(), self._config_stamp()
         self.state = store.load_state()
         self.get_focus, self.clock = get_focus, clock
         self.presence = presence or Presence(self.config["idle_seconds"])
@@ -55,9 +55,14 @@ class Daemon:
         self._last_focus = focus.Focus(None)
         self._rendered_at = time.monotonic()
 
+    @staticmethod
+    def _config_stamp() -> float:
+        """Sem config.json valem as regras padrão do repositório: elas também são vigiadas."""
+        return store.mtime(store.config_file()) or store.mtime(engine.DEFAULT_RULES_FILE)
+
     def _reload_config(self) -> None:
         """A janela grava a config; o daemon a relê quando o arquivo muda."""
-        if (m := store.mtime(store.config_file())) != self._config_mtime:
+        if (m := self._config_stamp()) != self._config_mtime:
             self._config_mtime, self.config = m, store.load_config()
             if isinstance(self.presence, Presence):
                 self.presence.limit = self.config["idle_seconds"]

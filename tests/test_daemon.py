@@ -104,6 +104,25 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(store.load_config()["rules"], engine.default_rules())
         Harness().run(1)  # o daemon sobe com o padrão
 
+    def test_default_rules_change_reaches_running_daemon(self):
+        """Sem config.json, mudar as regras padrão (como o YouTube 13/22) vale sem reiniciar."""
+        import json
+        import os
+        from unittest import mock
+
+        rules = engine.default_rules()
+        path = store.state_file().parent.parent / "default_rules.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(rules))
+        os.utime(path, (1, 1))
+        with mock.patch.object(engine, "DEFAULT_RULES_FILE", path):
+            h = Harness()
+            rules["youtube.com"]["session_minutes"] = 1
+            path.write_text(json.dumps(rules))
+            h.window(CHROME, "Vídeo - YouTube - Google Chrome")
+            h.run(61)
+        self.assertGreater(h.d.state["sites"]["youtube.com"]["rest_until"], 0)
+
     def test_atomic_write_leaves_no_temp_files(self):
         store.save_state({"sites": {"youtube.com": {"used": 5, "rest_until": 0}}, "live": {}})
         self.assertEqual([p.name for p in store.state_file().parent.iterdir()], ["state.json"])
