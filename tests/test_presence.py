@@ -9,11 +9,11 @@ from challenger.presence import COUNTS, classify
 
 class ClassifyTest(unittest.TestCase):
     def test_table(self):
-        self.assertEqual(classify(0.5, False), "mexendo")
-        self.assertEqual(classify(29.9, False), "mexendo")
-        self.assertEqual(classify(30, True), "video")  # deitado ou no escuro vendo vídeo
-        self.assertEqual(classify(30, False), "ausente")
-        self.assertEqual(classify(None, False), "mexendo")  # GNOME sem resposta: falha fechada
+        self.assertEqual(classify(0.5, False, 30), "mexendo")
+        self.assertEqual(classify(29.9, False, 30), "mexendo")
+        self.assertEqual(classify(30, True, 30), "video")  # deitado ou no escuro vendo vídeo
+        self.assertEqual(classify(30, False, 30), "ausente")
+        self.assertEqual(classify(None, False, 30), "mexendo")  # GNOME sem resposta: falha fechada
         self.assertEqual(classify(10, False, limit=5), "ausente")
 
     def test_only_absent_stops_counting(self):
@@ -24,7 +24,7 @@ class SampleTest(unittest.TestCase):
     def sample(self, idle, playing):
         with mock.patch.object(presence, "idle_seconds", return_value=idle), \
              mock.patch.object(presence, "media_playing", return_value=playing) as media:
-            return presence.Presence(30).sample(), media.called
+            return presence.sample(30), media.called
 
     def test_recent_input_skips_media_query(self):
         self.assertEqual(self.sample(1, True), ("mexendo", False))
@@ -37,7 +37,7 @@ class SampleTest(unittest.TestCase):
 
     def test_real_dbus_answers(self):
         """No GNOME de verdade: a leitura é uma das três."""
-        self.assertIn(presence.Presence().sample(), {"mexendo", "video", "ausente"})
+        self.assertIn(presence.sample(30), {"mexendo", "video", "ausente"})
 
 
 if __name__ == "__main__":

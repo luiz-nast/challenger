@@ -30,14 +30,14 @@ def _status() -> int:
 
 def _check() -> int:
     from . import focus
-    from .presence import Presence
+    from . import presence
 
     f = focus.get()
     rules = engine.rules_today(store.load_config(), engine.day_of(time.time()))
     print(f"extensão: {f.source}  tela bloqueada: {f.locked}")
     print(f"janela: {f.wm_class!r} {f.title!r}")
     print(f"navegador: {engine.is_browser(f.wm_class, f.title)}  site: {engine.site_for_window(f.wm_class, f.title, rules)}")
-    print(f"presença: {Presence(store.load_config()['idle_seconds']).sample()}")
+    print(f"presença: {presence.sample(store.load_config()['idle_seconds'])}")
     return 0
 
 

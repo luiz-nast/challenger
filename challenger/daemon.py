@@ -14,8 +14,8 @@ import threading
 import time
 from dataclasses import dataclass
 
-from . import engine, focus, store
-from .presence import COUNTS, Presence
+from . import engine, focus, presence as presence_mod, store
+from .presence import COUNTS
 
 log = logging.getLogger("challenger")
 HIDE_AFTER_SECONDS = 2  # a pílula fica 2 s com o último conteúdo, como no Maverick
@@ -23,8 +23,6 @@ STALE_SECONDS = 5  # linha de trabalho travada: a tela de descanso sai para não
 HUNG_SECONDS = 10  # linha de desenho travada com a tela por cima: o daemon sai e o systemd religa
 SLOW_SECONDS = 1.5
 RENDER_MS = 250
-BUS_NAME = "io.github.luiz_nast.Challenger.Daemon"
-OWN_WM_CLASS = "challenger-daemon"  # pílula e tela de descanso: foco nelas não conta como troca
 
 
 @dataclass
@@ -40,7 +38,7 @@ class Daemon:
         self.config, self._config_mtime = store.load_config(), self._config_stamp()
         self.state = store.load_state()
         self.get_focus, self.clock = get_focus, clock
-        self.presence = presence or Presence(self.config["idle_seconds"])
+        self.presence = presence or presence_mod.sample  # presence(limite) -> "mexendo"/"video"/"ausente"
         self.pill = self.cover = None
         if ui:
             from .overlay import Cover, Pill  # GTK só quando há tela
@@ -54,6 +52,7 @@ class Daemon:
         self._last_log = None
         self._last_focus = focus.Focus(None)
         self._rendered_at = time.monotonic()
+        self._cover_on = False  # escrito só pela linha de desenho; a de trabalho só lê
 
     @staticmethod
     def _config_stamp() -> float:
@@ -64,8 +63,6 @@ class Daemon:
         """A janela grava a config; o daemon a relê quando o arquivo muda."""
         if (m := self._config_stamp()) != self._config_mtime:
             self._config_mtime, self.config = m, store.load_config()
-            if isinstance(self.presence, Presence):
-                self.presence.limit = self.config["idle_seconds"]
             log.info("Config recarregada")
 
     def tick(self) -> Snapshot:
@@ -73,12 +70,12 @@ class Daemon:
         self._reload_config()
         rules = engine.rules_today(self.config, engine.day_of(now))
         f = self.get_focus()
-        if f.wm_class.lower() == OWN_WM_CLASS and self.snapshot:  # clique na própria tela: nada mudou
+        if f.wm_class.lower() == store.OWN_WM_CLASS and self.snapshot:  # clique na própria tela: nada mudou
             f = self._last_focus
         self._last_focus = f
         site = engine.site_for_window(f.wm_class, f.title, rules) if f.source and not f.locked else None
         before = engine.status(rules, self.state["sites"], site, now) if site else None
-        who = self.presence.sample() if before and not before.resting else "repouso"
+        who = self.presence(self.config["idle_seconds"]) if before and not before.resting else "repouso"
         counting = bool(site) and who in COUNTS
         changed = engine.tick(self.state["sites"], rules, now, site, counting)
         after = engine.status(rules, self.state["sites"], site, now) if site else None
@@ -113,11 +110,13 @@ class Daemon:
             self.pill.hide()
             left = site.rest_until - self.clock()
             self.cover.show_block(f"{site.name} em descanso", engine.fmt_long(left),
-                                  f"Libera às {engine.fmt_clock(site.rest_until)}.", f"⛔ {site.pill}")
+                                  f"Libera às {engine.fmt_clock(site.rest_until)}.", engine.pill_view(site, False)[0])
+            self._cover_on = True
             return False
         self.cover.hide()
+        self._cover_on = False
         if site:
-            self._pill = (site.pill, site.pill_state if snap.counting else "idle")
+            self._pill = engine.pill_view(site, snap.counting)
             self._visible_until = max(self._visible_until, snap.at + HIDE_AFTER_SECONDS)
         if time.monotonic() >= self._visible_until:
             self.pill.hide()
@@ -140,7 +139,7 @@ class Daemon:
             spent = time.monotonic() - started
             if spent > SLOW_SECONDS:
                 log.warning("Ciclo lento: %.1f s (conta só 1 s)", spent)
-            if self.cover and self.cover.visible and time.monotonic() - self._rendered_at > HUNG_SECONDS:
+            if self._cover_on and time.monotonic() - self._rendered_at > HUNG_SECONDS:
                 # Janela por cima de tudo e ninguém desenhando: sair destrói as janelas X; o systemd religa.
                 log.error("Linha de desenho travada com a tela de descanso; reiniciando")
                 os._exit(1)
@@ -153,7 +152,7 @@ class Daemon:
         bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
         # Um daemon só; a janela vê pelo nome no D-Bus se o contador está rodando.
         reply = bus.call_sync("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
-                              "RequestName", GLib.Variant("(su)", (BUS_NAME, 4)), GLib.VariantType("(u)"),
+                              "RequestName", GLib.Variant("(su)", (store.BUS_NAME, 4)), GLib.VariantType("(u)"),
                               Gio.DBusCallFlags.NONE, 1000, None).unpack()[0]
         if reply != 1:
             log.error("Já existe um Challenger rodando.")

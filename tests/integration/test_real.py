@@ -196,11 +196,10 @@ class RealEnvironmentTest(unittest.TestCase):
 
     def test_real_presence(self):
         """GNOME responde o tempo sem teclado/mouse e o MPRIS responde; a leitura é uma das três."""
-        bus = presence.Gio.bus_get_sync(presence.Gio.BusType.SESSION, None)
-        idle = presence.idle_seconds(bus)
+        idle = presence.idle_seconds()
         self.assertIsNotNone(idle, "o GNOME não respondeu o tempo ocioso")
-        playing = presence.media_playing(bus)
-        who = presence.Presence(store.load_config()["idle_seconds"]).sample()
+        playing = presence.media_playing()
+        who = presence.sample(store.load_config()["idle_seconds"])
         self.assertIn(who, {"mexendo", "video", "ausente"})
         print(f"\n  presença real: ocioso {idle:.1f} s, mídia tocando: {playing}, leitura: {who}")
 
@@ -211,7 +210,7 @@ class FixedPresence:
     def __init__(self):
         self.samples = 0
 
-    def sample(self):
+    def __call__(self, limit):
         self.samples += 1
         return "mexendo"
 

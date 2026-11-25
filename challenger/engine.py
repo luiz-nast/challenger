@@ -219,6 +219,17 @@ def site_for_window(wm_class: str, title: str, rules: dict) -> str | None:
 
 # --- Contagem -------------------------------------------------------------------------
 
+# CSS da pílula do Maverick (maverick/overlay.py), igual. Overlay e janela usam este texto.
+PILL_CSS = """
+.pill { background-color: rgba(20, 20, 20, 0.88); color: #ffffff; border-radius: 14px;
+        padding: 6px 14px; font-family: monospace; font-size: 15px; font-weight: bold; }
+.pill.idle    { color: #bdbdbd; }
+.pill.playing { color: #7CFC9A; }
+.pill.warning { color: #FFD166; }
+.pill.blocked { color: #FF6B6B; }
+"""
+
+
 @dataclass
 class SiteStatus:
     key: str
@@ -247,6 +258,15 @@ class SiteStatus:
         if self.resting:
             return "blocked"
         return "warning" if self.left <= 60 else "playing"
+
+
+def pill_view(site: SiteStatus | None, counting: bool) -> tuple[str, str]:
+    """Texto e cor da pílula, iguais na tela e na janela."""
+    if not site:
+        return "⏸ nenhum site em foco", "idle"
+    if site.resting:
+        return f"⛔ {site.pill}", "blocked"
+    return site.pill, site.pill_state if counting else "idle"
 
 
 def status(rules: dict, sites: dict, key: str, now: float) -> SiteStatus:

@@ -62,7 +62,7 @@ class App(gui.App):
         check(ig.time.get_text().startswith("libera em 10:"), f"Instagram tempo restante ({ig.time.get_text()})")
         check(win.pill.get_text() == "YouTube 12:14 / 13:00", "pílula com o site em foco")
         check(win.pill.has_css_class("pill") and win.pill.has_css_class("idle"), "pílula cinza com ninguém mexendo")
-        check(win.camera.get_text() == "ninguém mexendo", "presença discreta: ninguém mexendo")
+        check(win.presence_label.get_text() == "ninguém mexendo", "presença discreta: ninguém mexendo")
         check(not win.banner_focus.get_revealed(), "sem aviso de extensão (Maverick respondeu)")
         check(not win.banner_pending.get_revealed(), "sem pendência no começo")
 

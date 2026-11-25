@@ -17,7 +17,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk  # noqa: E402
 
 from . import __version__, engine, store  # noqa: E402
 from .presence import COUNTS, LABELS  # noqa: E402
-from .daemon import BUS_NAME  # noqa: E402
+from .bus import call  # noqa: E402
 
 REPO_URL = "https://github.com/luiz-nast/challenger"
 SAVE_DELAY_MS = 800  # espera os cliques no +/- acabarem antes de gravar
@@ -37,8 +37,8 @@ CSS = """
 }
 window { font-family: var(--font-ui); }
 .now { padding: 18px 0 6px 0; }
-.camera { color: var(--muted); font-size: 14px; }
-.camera image { color: var(--muted); }
+.presence { color: var(--muted); font-size: 14px; }
+.presence image { color: var(--muted); }
 .now-text { color: var(--ink-2); font-size: 15px; }
 .time { font-family: var(--font-time); font-feature-settings: "tnum"; }
 .site-row { border-left: 6px solid var(--tint); }
@@ -52,14 +52,8 @@ window { font-family: var(--font-ui); }
 .add-hint { color: var(--muted); }
 .error-text { color: @error_color; }
 banner > revealer > widget { background-color: var(--banner-bg); color: var(--ink); }
-/* A pílula do Maverick, igual (maverick/overlay.py). */
-label.pill { background-color: rgba(20, 20, 20, 0.88); color: #ffffff; border-radius: 14px;
-        padding: 6px 14px; font-family: monospace; font-size: 15px; font-weight: bold; }
-label.pill.idle    { color: #bdbdbd; }
-label.pill.playing { color: #7CFC9A; }
-label.pill.warning { color: #FFD166; }
-label.pill.blocked { color: #FF6B6B; }
 """
+CSS += engine.PILL_CSS.replace(".pill", "label.pill")  # a pílula do Maverick; label. por causa do button.pill do Adw
 for i in range(7):
     CSS += f".site-row.tint-{i} {{ --tint: var(--tint-{i}); }}\n"
 # Tema escuro: chão "night" do Dose. Entra e sai junto com o tema do sistema.
@@ -74,10 +68,8 @@ DARK_CSS = """
 
 def daemon_running() -> bool:
     try:
-        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
-        return bus.call_sync("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "NameHasOwner",
-                             GLib.Variant("(s)", (BUS_NAME,)), GLib.VariantType("(b)"),
-                             Gio.DBusCallFlags.NONE, 500, None).unpack()[0]
+        return call("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "NameHasOwner", "(b)",
+                    GLib.Variant("(s)", (store.BUS_NAME,)))[0]
     except GLib.Error:
         return False
 
@@ -217,12 +209,12 @@ class Window(Adw.ApplicationWindow):
         self.pill.add_css_class("idle")
         self.now_text = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER)
         self.now_text.add_css_class("now-text")
-        cam = Gtk.Box(spacing=6, halign=Gtk.Align.CENTER)
-        cam.add_css_class("camera")
-        cam.append(Gtk.Image(icon_name="input-mouse-symbolic"))
-        self.camera = Gtk.Label()
-        cam.append(self.camera)
-        for w in (self.pill, self.now_text, cam):
+        who = Gtk.Box(spacing=6, halign=Gtk.Align.CENTER)
+        who.add_css_class("presence")
+        who.append(Gtk.Image(icon_name="input-mouse-symbolic"))
+        self.presence_label = Gtk.Label()
+        who.append(self.presence_label)
+        for w in (self.pill, self.now_text, who):
             box.append(w)
         group.add(box)
         return group
@@ -342,15 +334,10 @@ class Window(Adw.ApplicationWindow):
 
         focus = live.get("focus") if running else None
         site = engine.status(rules, state["sites"], focus, now) if focus in rules else None
-        camera = live.get("presence", "repouso") if running else "repouso"
-        if site and not site.resting:
-            self._set_pill(site.pill, site.pill_state if camera in COUNTS else "idle")
-        elif site:
-            self._set_pill(f"⛔ {site.pill}", "blocked")
-        else:
-            self._set_pill("⏸ nenhum site em foco", "idle")
-        self.now_text.set_text(now_line(site, camera) if running else "O contador está parado.")
-        self.camera.set_text(LABELS.get(camera, camera))
+        who = live.get("presence", "repouso") if running else "repouso"
+        self._set_pill(*engine.pill_view(site, who in COUNTS))
+        self.now_text.set_text(now_line(site, who) if running else "O contador está parado.")
+        self.presence_label.set_text(LABELS.get(who, who))
         self.banner_daemon.set_revealed(not running)
         self.banner_focus.set_revealed(running and live.get("source") is None)
         self.banner_pending.set_revealed(bool(changes))

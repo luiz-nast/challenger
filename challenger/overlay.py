@@ -20,21 +20,16 @@ import gi  # noqa: E402
 from gi.repository import GLib  # noqa: E402
 
 # WM_CLASS das janelas X daqui ("Challenger-daemon"): o daemon reconhece foco nelas. Antes do GTK.
-GLib.set_prgname("challenger-daemon")
+GLib.set_prgname("challenger-daemon")  # = store.OWN_WM_CLASS
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
 gi.require_version("GdkX11", "3.0")
 from gi.repository import Gdk, GdkX11, Gtk  # noqa: E402
 
-# Pílula: CSS do Maverick (maverick/overlay.py), igual.
-PILL_CSS = b"""
-.pill { background-color: rgba(20, 20, 20, 0.88); color: #ffffff; border-radius: 14px;
-        padding: 6px 14px; font-family: monospace; font-size: 15px; font-weight: bold; }
-.pill.idle    { color: #bdbdbd; }
-.pill.playing { color: #7CFC9A; }
-.pill.warning { color: #FFD166; }
-.pill.blocked { color: #FF6B6B; }
-"""
+from . import engine, store  # noqa: E402
+
+# Pílula: CSS do Maverick (maverick/overlay.py), igual; o texto mora no engine.
+PILL_CSS = engine.PILL_CSS.encode()
 # Tela de descanso: tema Dose (Hallmark), chão "night". Quase opaca de propósito (0,96, como no
 # Maverick): coberto por janela opaca, o GNOME para de desenhar o Chrome, e os agentes que tiram
 # print da aba ficariam esperando.

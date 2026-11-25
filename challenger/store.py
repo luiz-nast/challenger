@@ -12,6 +12,8 @@ from .engine import default_rules
 
 APP_ID = "io.github.luiz_nast.Challenger"
 APP_NAME = "Challenger"
+BUS_NAME = "io.github.luiz_nast.Challenger.Daemon"  # um daemon só; a janela vê por ele se o contador roda
+OWN_WM_CLASS = "challenger-daemon"  # WM_CLASS da pílula e da tela de descanso
 IDLE_DEFAULT = 30  # s sem teclado/mouse (e sem mídia tocando) até parar de contar
 
 

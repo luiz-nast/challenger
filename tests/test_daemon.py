@@ -17,7 +17,7 @@ class FakePresence:
     def __init__(self, state="mexendo"):
         self.state, self.samples = state, 0
 
-    def sample(self):
+    def __call__(self, limit):
         self.samples += 1
         return self.state
 
@@ -61,9 +61,9 @@ def fresh():
 
 
 class Harness:
-    def __init__(self, cam="mexendo", clock=None):
+    def __init__(self, who="mexendo", clock=None):
         self.focus = Focus("challenger", "", "")
-        self.cam, self.clock = FakePresence(cam), clock or FakeClock()
+        self.cam, self.clock = FakePresence(who), clock or FakeClock()
         self.d = Daemon(ui=False, get_focus=lambda: self.focus, presence=self.cam, clock=self.clock)
         self.d.pill, self.d.cover = StubPill(), StubCover()
 
@@ -145,7 +145,7 @@ class CountingTest(unittest.TestCase):
         h.window(CHROME, "Notícias - G1 - Google Chrome")
         h.run(10)
         self.assertEqual(h.used("youtube.com"), 0)
-        self.assertEqual(h.cam.samples, 0)  # câmera nem foi lida
+        self.assertEqual(h.cam.samples, 0)  # presença nem foi lida
 
     def test_chrome_and_firefox_count_the_same(self):
         results = []
@@ -261,7 +261,7 @@ class RestAndOverlayTest(unittest.TestCase):
             pass
 
         h = Harness()
-        h.d.cover.visible = True
+        h.d._cover_on = True  # a linha de desenho deixou a tela por cima
         h.d._rendered_at = -1e9
         h.d.render = lambda: False  # a linha de desenho não roda
         with mock.patch.object(daemon_mod.os, "_exit", side_effect=Exited):
