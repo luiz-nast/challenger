@@ -1,6 +1,7 @@
 """Daemon com foco falso, presença falsa e relógio falso: o caminho inteiro de um segundo."""
 
 import shutil
+import tempfile
 import unittest
 from datetime import datetime
 
@@ -53,6 +54,8 @@ class StubCover:
 
 
 def fresh():
+    # Nunca apaga os arquivos de verdade: só roda com o XDG temporário de tests/__init__.py.
+    assert str(store.config_file()).startswith(tempfile.gettempdir()), store.config_file()
     shutil.rmtree(store.config_file().parent, ignore_errors=True)
     shutil.rmtree(store.state_file().parent, ignore_errors=True)
 
@@ -89,6 +92,17 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(cfg["rules"], engine.default_rules())
         self.assertEqual(cfg["idle_seconds"], store.IDLE_DEFAULT)
         self.assertEqual(store.load_state()["sites"], {})
+
+    def test_bad_values_are_dropped_not_crashed(self):
+        store.state_file().parent.mkdir(parents=True, exist_ok=True)
+        store.state_file().write_text('{"sites": {"a.com": {"used": null}, "b.com": {"used": "abc"},'
+                                      ' "c.com": {"used": 5, "rest_until": 0}}}')
+        self.assertEqual(store.load_state()["sites"], {"c.com": {"used": 5, "rest_until": 0.0}})
+        store.config_file().parent.mkdir(parents=True, exist_ok=True)
+        store.config_file().write_text('{"rules": {"x.com": {"name": "X", "domains": [1],'
+                                       ' "session_minutes": 5, "rest_minutes": 5}}}')
+        self.assertEqual(store.load_config()["rules"], engine.default_rules())
+        Harness().run(1)  # o daemon sobe com o padrão
 
     def test_atomic_write_leaves_no_temp_files(self):
         store.save_state({"sites": {"youtube.com": {"used": 5, "rest_until": 0}}, "live": {}})

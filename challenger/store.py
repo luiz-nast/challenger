@@ -48,7 +48,8 @@ def _write(path: Path, data: dict) -> None:
 
 def _valid_rules(rules) -> bool:
     return isinstance(rules, dict) and all(
-        isinstance(r, dict) and isinstance(r.get("name"), str) and isinstance(r.get("domains"), list)
+        isinstance(r, dict) and isinstance(r.get("name"), str) and r["name"].strip()
+        and isinstance(r.get("domains"), list) and all(isinstance(d, str) for d in r["domains"])
         and all(isinstance(r.get(k), (int, float)) and r[k] > 0 for k in ("session_minutes", "rest_minutes"))
         for r in rules.values())
 
@@ -73,7 +74,8 @@ def load_state() -> dict:
     data = _read(state_file())
     sites = data.get("sites") if isinstance(data.get("sites"), dict) else {}
     sites = {k: {"used": int(v.get("used", 0)), "rest_until": float(v.get("rest_until", 0))}
-             for k, v in sites.items() if isinstance(v, dict)}
+             for k, v in sites.items() if isinstance(v, dict)
+             and all(type(v.get(f, 0)) in (int, float) for f in ("used", "rest_until"))}
     live = data.get("live") if isinstance(data.get("live"), dict) else {}
     return {"sites": sites, "live": live}
 

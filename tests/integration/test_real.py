@@ -234,6 +234,7 @@ class RealBrowsersTest(unittest.TestCase):
         """Estado e config de teste do zero (também a cada nova tentativa)."""
         self.server.hits.clear()
         self.server.pings.clear()
+        assert str(store.state_file()).startswith(tempfile.gettempdir()), store.state_file()
         shutil.rmtree(store.state_file().parent, ignore_errors=True)
         rules = engine.default_rules()
         # Sessão de 6 s e descanso de 1 h no YouTube e no Instagram, para caber num teste.
