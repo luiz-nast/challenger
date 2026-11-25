@@ -111,6 +111,7 @@ class App(gui.App):
         check("tiktok.com" in engine.rules_today(cfg, today), "TikTok continua hoje")
         check("tiktok.com" not in engine.rules_today(cfg, engine.next_day(today)), "TikTok sai amanhã")
         check("Sai da lista amanhã" in win.rows["tiktok.com"].get_subtitle(), "linha avisa a remoção")
+        check(not win.rows["tiktok.com"].session.get_sensitive(), "remoção pendente: não dá para editar")
         tt = win.rows["tiktok.com"]
         pump(1.2)
         check((tt.session.get_value(), tt.rest.get_value()) == (7, 15), "site com remoção pendente mostra a regra de hoje")

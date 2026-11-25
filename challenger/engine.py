@@ -80,6 +80,39 @@ def change_rules(config: dict, wanted: dict, today: str) -> dict:
     return {**config, "rules": copy.deepcopy(now_rules), "next": nxt}
 
 
+def edit_rule(config: dict, key: str, session: int, rest: int, today: str) -> dict:
+    """Pede sessão/descanso novos para amanhã. Site com remoção pendente não volta por edição."""
+    wanted = rules_wanted(config)
+    if key not in wanted:
+        return config
+    wanted[key] = {**wanted[key], "session_minutes": session, "rest_minutes": rest}
+    return change_rules(config, wanted, today)
+
+
+def remove_rule(config: dict, key: str, today: str) -> dict:
+    wanted = rules_wanted(config)
+    wanted.pop(key, None)
+    return change_rules(config, wanted, today)
+
+
+def undo_rule(config: dict, key: str, today: str) -> dict:
+    """Volta o pedido desse site para a regra de hoje (desfaz edição ou remoção)."""
+    wanted = rules_wanted(config)
+    wanted[key] = copy.deepcopy(rules_today(config, today)[key])
+    return change_rules(config, wanted, today)
+
+
+def add_site(config: dict, text: str, session: int, rest: int, name: str, today: str) -> tuple[dict, str]:
+    """Site novo, valendo hoje. Devolve (config, erro); com erro a config não muda."""
+    domain = normalize_domain(text)
+    if not domain:
+        return config, "Isso não parece um site. Escreva só o domínio, como reddit.com."
+    if site_for_host(domain, rules_today(config, today)):
+        return config, f"{domain} já está na lista. Para mudar a regra, abra o site na lista acima."
+    wanted = {**rules_wanted(config), domain: new_rule(domain, session, rest, name)}
+    return change_rules(config, wanted, today), ""
+
+
 def pending(config: dict, today: str) -> dict:
     """Mudanças que só valem amanhã, por site: "nova", "removida" ou "alterada"."""
     nxt = config.get("next")

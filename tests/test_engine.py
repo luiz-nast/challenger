@@ -295,6 +295,22 @@ class RuleChangeTest(unittest.TestCase):
         self.assertFalse(st.resting)
         self.assertEqual(st.used, 0)
 
+    def test_edit_remove_undo_add_helpers(self):
+        cfg, today = self.config(), "2026-11-21"
+        cfg = engine.edit_rule(cfg, "tiktok.com", 3, 30, today)
+        self.assertEqual(engine.rules_today(cfg, today)["tiktok.com"]["session_minutes"], 7)
+        self.assertEqual(engine.rules_wanted(cfg)["tiktok.com"]["session_minutes"], 3)
+        cfg = engine.remove_rule(cfg, "tiktok.com", today)
+        self.assertIs(engine.edit_rule(cfg, "tiktok.com", 9, 9, today), cfg)  # remoção pendente não volta por edição
+        cfg = engine.undo_rule(cfg, "tiktok.com", today)
+        self.assertIsNone(cfg["next"])
+        same, err = engine.add_site(cfg, "não é site", 5, 5, "", today)
+        self.assertTrue(err and same is cfg)
+        _, err = engine.add_site(cfg, "m.youtube.com", 5, 5, "", today)
+        self.assertIn("já está na lista", err)
+        cfg, err = engine.add_site(cfg, "https://www.Reddit.com/r/x", 2, 5, "", today)
+        self.assertEqual((err, engine.rules_today(cfg, today)["reddit.com"]["session_minutes"]), ("", 2))
+
     def test_remove_every_site(self):
         cfg = engine.change_rules(self.config(), {}, "2026-11-21")
         self.assertEqual(engine.rules_wanted(cfg), {})

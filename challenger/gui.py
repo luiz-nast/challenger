@@ -166,7 +166,8 @@ class SiteRow(Adw.ExpanderRow):
         elif change:
             self.pending.set_subtitle(f"A partir de amanhã: sessão de {wanted['session_minutes']} min, "
                                       f"descanso de {wanted['rest_minutes']} min")
-        self.remove_btn.set_sensitive(change != "removida")
+        for widget in (self.remove_btn, self.session, self.rest):
+            widget.set_sensitive(change != "removida")
         self.set_rule(wanted or today)
 
 
@@ -256,8 +257,12 @@ class Window(Adw.ApplicationWindow):
     def _today(self) -> str:
         return engine.day_of(time.time())
 
-    def _apply(self, wanted: dict, toast: str | None = None) -> None:
-        self.config = engine.change_rules(store.load_config(), wanted, self._today())
+    def _apply(self, change, toast: str) -> None:
+        """Relê a config do disco, aplica `change(config, hoje)` e grava se mudou."""
+        config = store.load_config()
+        self.config = change(config, self._today())
+        if self.config == config:
+            return
         store.save_config(self.config)
         if toast:
             self.toasts.add_toast(Adw.Toast(title=toast, timeout=3))
@@ -269,11 +274,7 @@ class Window(Adw.ApplicationWindow):
 
         def save():
             self.saves.pop(key, None)
-            config = store.load_config()
-            wanted = engine.rules_wanted(config)
-            rule = wanted.get(key) or engine.rules_today(config, self._today())[key]
-            wanted[key] = {**rule, "session_minutes": session, "rest_minutes": rest}
-            self._apply(wanted, "Regra nova vale a partir de amanhã.")
+            self._apply(lambda c, d: engine.edit_rule(c, key, session, rest, d), "Regra nova vale a partir de amanhã.")
             return False
 
         self.saves[key] = (GLib.timeout_add(SAVE_DELAY_MS, save), save)
@@ -291,17 +292,12 @@ class Window(Adw.ApplicationWindow):
 
     def remove(self, key: str) -> None:
         self._cancel(key)
-        wanted = engine.rules_wanted(store.load_config())
-        wanted.pop(key, None)
-        self._apply(wanted, "O site sai da lista amanhã, à meia-noite.")
+        self._apply(lambda c, d: engine.remove_rule(c, key, d), "O site sai da lista amanhã, à meia-noite.")
 
     def undo(self, key: str) -> None:
         """Volta o pedido de mudança desse site para a regra de hoje."""
         self._cancel(key)
-        config = store.load_config()
-        wanted, today = engine.rules_wanted(config), engine.rules_today(config, self._today())
-        wanted[key] = today[key]
-        self._apply(wanted, "Mudança desfeita.")
+        self._apply(lambda c, d: engine.undo_rule(c, key, d), "Mudança desfeita.")
 
     def _add_error(self, text: str) -> None:
         self.add_message.set_text(text)
@@ -309,20 +305,15 @@ class Window(Adw.ApplicationWindow):
         (self.add_domain.add_css_class if text else self.add_domain.remove_css_class)("error")
 
     def _add(self, *_):
+        config, error = engine.add_site(store.load_config(), self.add_domain.get_text(), int(self.add_session.get_value()),
+                                        int(self.add_rest.get_value()), self.add_name.get_text(), self._today())
+        if error:
+            self._add_error(error)
+            return
         domain = engine.normalize_domain(self.add_domain.get_text())
-        if not domain:
-            self._add_error("Isso não parece um site. Escreva só o domínio, como reddit.com.")
-            return
-        config = store.load_config()
-        if engine.site_for_host(domain, engine.rules_today(config, self._today())):
-            self._add_error(f"{domain} já está na lista. Para mudar a regra, abra o site na lista acima.")
-            return
-        wanted = engine.rules_wanted(config)
-        wanted[domain] = engine.new_rule(domain, int(self.add_session.get_value()), int(self.add_rest.get_value()),
-                                         self.add_name.get_text())
         self.add_domain.set_text("")
         self.add_name.set_text("")
-        self._apply(wanted, f"{domain} adicionado. Já está valendo.")
+        self._apply(lambda c, d: config, f"{domain} adicionado. Já está valendo.")
 
     def _start_daemon(self, *_):
         subprocess.Popen(["systemctl", "--user", "start", "challenger.service"])
