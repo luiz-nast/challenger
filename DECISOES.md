@@ -152,3 +152,7 @@ nunca dá play em vídeo.
 - GNOME sem resposta: conta (falha fechada).
 - Saem OpenCV, o modelo YuNet, o venv e o pip: o instalador usa só o Python do sistema.
 - Furos: vídeo mudo sem mexer (pode não aparecer no MPRIS); agente dando play em vídeo com som.
+- Medido: mouse, cliques, digitação e roda mandados por CDP (como os agentes e o Radar Vagas fazem)
+  não zeram o tempo ocioso do GNOME (`tools/cdp_idle_check.py`).
+- Furo conhecido: mídia tocando em outra aba ou janela faz contar o site em foco. Erra para o lado
+  estrito e fica assim.

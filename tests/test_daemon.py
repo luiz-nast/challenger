@@ -63,8 +63,8 @@ def fresh():
 class Harness:
     def __init__(self, who="mexendo", clock=None):
         self.focus = Focus("challenger", "", "")
-        self.cam, self.clock = FakePresence(who), clock or FakeClock()
-        self.d = Daemon(ui=False, get_focus=lambda: self.focus, presence=self.cam, clock=self.clock)
+        self.who, self.clock = FakePresence(who), clock or FakeClock()
+        self.d = Daemon(ui=False, get_focus=lambda: self.focus, presence=self.who, clock=self.clock)
         self.d.pill, self.d.cover = StubPill(), StubCover()
 
     def window(self, wm_class, title):
@@ -145,7 +145,7 @@ class CountingTest(unittest.TestCase):
         h.window(CHROME, "Notícias - G1 - Google Chrome")
         h.run(10)
         self.assertEqual(h.used("youtube.com"), 0)
-        self.assertEqual(h.cam.samples, 0)  # presença nem foi lida
+        self.assertEqual(h.who.samples, 0)  # presença nem foi lida
 
     def test_chrome_and_firefox_count_the_same(self):
         results = []
@@ -199,9 +199,9 @@ class PresencePathTest(unittest.TestCase):
         h = Harness()
         h.window(CHROME, "Pinterest - Google Chrome")
         h.run(7 * MIN)  # até o descanso
-        samples = h.cam.samples
+        samples = h.who.samples
         h.run(30)  # em descanso, em foco: não precisa perguntar
-        self.assertEqual(h.cam.samples, samples)
+        self.assertEqual(h.who.samples, samples)
 
 
 class RestAndOverlayTest(unittest.TestCase):
@@ -215,7 +215,7 @@ class RestAndOverlayTest(unittest.TestCase):
         self.assertTrue(h.d.pill.visible)
         self.assertEqual(h.d.pill.text, "Instagram 00:03 / 07:00")
         self.assertEqual(h.d.pill.state, "playing")
-        h.cam.state = "ausente"
+        h.who.state = "ausente"
         h.run(1)
         self.assertEqual(h.d.pill.state, "idle")
 

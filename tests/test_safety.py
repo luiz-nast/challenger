@@ -1,4 +1,4 @@
-"""O Challenger nunca mexe no navegador nem guarda imagem da câmera.
+"""O Challenger nunca mexe no navegador nem manda nada para fora.
 
 Teste de código: nenhum módulo tem chamada que feche aba ou janela, recarregue, mude URL,
 pause mídia, mate processo ou grave quadro; a extensão do GNOME só lê a janela em foco.

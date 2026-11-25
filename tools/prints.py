@@ -1,4 +1,4 @@
-"""Gera os prints de docs/prints/ com dados de exemplo (nunca a tela real nem a câmera).
+"""Gera os prints de docs/prints/ com dados de exemplo (nunca a tela real).
 
     /usr/bin/python3 tools/prints.py overlay   # pílula, pílula x Maverick, tela de descanso (GTK 3)
     /usr/bin/python3 tools/prints.py window    # janela clara, escura e com regra pendente (GTK 4)

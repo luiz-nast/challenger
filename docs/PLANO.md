@@ -1,4 +1,4 @@
-# Plano único do Challenger
+# Plano único do Challenger (histórico: a câmera foi trocada por presença, ver D13 no DECISOES)
 
 ## Como cheguei aqui
 
