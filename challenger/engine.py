@@ -109,7 +109,11 @@ def add_site(config: dict, text: str, session: int, rest: int, name: str, today:
         return config, "Isso não parece um site. Escreva só o domínio, como reddit.com."
     if site_for_host(domain, rules_today(config, today)):
         return config, f"{domain} já está na lista. Para mudar a regra, abra o site na lista acima."
-    wanted = {**rules_wanted(config), domain: new_rule(domain, session, rest, name)}
+    rule = new_rule(domain, session, rest, name)
+    names = {r["name"].lower() for r in (*rules_today(config, today).values(), *rules_wanted(config).values())}
+    if rule["name"].lower() in names:  # o site é achado pelo nome no título: dois iguais, o segundo nunca conta
+        return config, f"Já existe um site chamado {rule['name']} na lista. Escreva outro nome na aba."
+    wanted = {**rules_wanted(config), domain: rule}
     return change_rules(config, wanted, today), ""
 
 
@@ -149,8 +153,9 @@ BROWSERS = ("chrome", "chromium", "firefox", "brave", "microsoft-edge", "vivaldi
             "epiphany", "falkon", "floorp", "waterfox", "torbrowser", "zen-browser", "zen_browser", "crx_")
 # Do trecho com a marca do navegador até o fim: " - Google Chrome", " — Mozilla Firefox",
 # " — Navegação privativa do Mozilla Firefox", " - Google Chrome (Anônima)", " - Google Chrome - Perfil".
-_BROWSER_SUFFIX = re.compile(r"\s[-–—]\s[^-–—]*(Google Chrome|Chromium|Firefox|Brave|Microsoft Edge|Vivaldi|Opera|"
-                             r"LibreWolf|Zen Browser|Floorp|Waterfox|Epiphany|Falkon|Tor Browser).*$")
+_BROWSER_SUFFIX = re.compile(r"^(.*)\s[-–—]\s[^-–—]*(Google Chrome|Chromium|Firefox|Brave|Microsoft Edge|Vivaldi|"
+                             r"Opera|LibreWolf|Zen Browser|Floorp|Waterfox|Epiphany|Falkon|Tor Browser)[^-–—]*"
+                             r"(?:\s[-–—]\s[^-–—]*)?$")  # marca só no último trecho (mais um de perfil, no máximo)
 _PRIVATE = re.compile(r"\s—\s(navegação privativa|private browsing)$", re.I)  # "— Mozilla Firefox — navegação privativa"
 _AUDIO = re.compile(r"\s-\s(Reprodução de áudio|Audio playing)$")
 _HARD = re.compile(r"\s[-–—]\s")  # "Vídeo - YouTube", "TikTok - Make Your Day"
@@ -162,13 +167,15 @@ _SEARCH = re.compile(r"pesquis|search|busca|bing|duckduckgo|google")
 
 def is_browser(wm_class: str, title: str) -> bool:
     cls = (wm_class or "").lower()
-    return any(b in cls for b in BROWSERS) or bool(_BROWSER_SUFFIX.search(title or ""))
+    return any(b in cls for b in BROWSERS) or bool(_BROWSER_SUFFIX.match(title or ""))
 
 
 def tab_title(window_title: str) -> str:
     """Título da aba a partir do título da janela (tira " - Google Chrome" e afins)."""
     title = _PRIVATE.sub("", (window_title or "").strip())
-    return _AUDIO.sub("", _BROWSER_SUFFIX.sub("", title)).strip()
+    if m := _BROWSER_SUFFIX.match(title):
+        title = m.group(1)
+    return _AUDIO.sub("", title).strip()
 
 
 def site_for_host(host: str, rules: dict) -> str | None:
@@ -200,7 +207,7 @@ def site_for_title(title: str, rules: dict) -> str | None:
         lambda n: len(hard) > 1 and hard[-1] == n,
         lambda n: len(soft) > 1 and (soft[-1] == n or len(n) > 1 and (soft[-1].startswith(n + " ")
                                                                      or soft[-1].endswith(" " + n))),
-        lambda n: re.search(rf"\s(on|no) {re.escape(n)}:", t),
+        lambda n: re.match(rf"[^:]*\s(on|no) {re.escape(n)}:", t),
         lambda n: len(hard) == 2 and hard[0] == n and not _SEARCH.search(hard[1]),
     )
     for check in checks:

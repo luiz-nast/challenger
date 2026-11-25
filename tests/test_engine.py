@@ -97,6 +97,20 @@ class MatchTest(unittest.TestCase):
         self.assertEqual(self.site("Pinterest - Microsoft Edge", "microsoft-edge"), "pinterest.com")
         self.assertEqual(self.site("Google Chrome tips - YouTube - Google Chrome"), "youtube.com")
 
+    def test_browser_name_inside_the_video_title(self):
+        for t in ("Sara Bareilles - Brave (Official Music Video) - YouTube - Google Chrome",
+                  "Andrew Lloyd Webber - The Phantom of the Opera - YouTube - Google Chrome",
+                  "Review - Chrome vs Firefox em 2026 - YouTube — Mozilla Firefox",
+                  "Vídeo - YouTube - Google Chrome - Luiz"):
+            self.assertEqual(self.site(t), "youtube.com", t)
+        self.assertEqual(self.site("Dica - Firefox no Linux | TikTok - Google Chrome"), "tiktok.com")
+
+    def test_site_name_quoted_in_post_or_email(self):
+        for t in ('Fulano on X: "Saiu vídeo novo no YouTube: https://t.co/abc" / X - Google Chrome',
+                  'Fulano no X: "postei no Instagram: corre lá" / X - Google Chrome',
+                  "Re: vídeo novo no YouTube: link - fulano@gmail.com - Gmail - Google Chrome"):
+            self.assertIsNone(self.site(t), t)
+
     def test_only_browsers(self):
         self.assertIsNone(engine.site_for_window("org.gnome.TextEditor", "YouTube", RULES))
         self.assertIsNone(engine.site_for_window("Claude", "Vídeo - YouTube", RULES))
@@ -308,6 +322,8 @@ class RuleChangeTest(unittest.TestCase):
         self.assertTrue(err and same is cfg)
         _, err = engine.add_site(cfg, "m.youtube.com", 5, 5, "", today)
         self.assertIn("já está na lista", err)
+        _, err = engine.add_site(cfg, "instagram.com.br", 5, 5, "", today)
+        self.assertIn("Já existe um site chamado Instagram", err)
         cfg, err = engine.add_site(cfg, "https://www.Reddit.com/r/x", 2, 5, "", today)
         self.assertEqual((err, engine.rules_today(cfg, today)["reddit.com"]["session_minutes"]), ("", 2))
 
