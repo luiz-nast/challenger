@@ -16,7 +16,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk  # noqa: E402
 
 from . import __version__, engine, store  # noqa: E402
-from .camera import COUNTS, LABELS  # noqa: E402
+from .presence import COUNTS, LABELS  # noqa: E402
 from .daemon import BUS_NAME  # noqa: E402
 
 REPO_URL = "https://github.com/luiz-nast/challenger"
@@ -82,15 +82,15 @@ def daemon_running() -> bool:
         return False
 
 
-def now_line(site: engine.SiteStatus | None, camera: str) -> str:
+def now_line(site: engine.SiteStatus | None, who: str) -> str:
     """Frase curta sobre o que está contando agora."""
     if not site:
         return "Nenhum site da lista em foco."
     if site.resting:
         return f"{site.name} em descanso: a tela de bloqueio está por cima."
-    if camera in COUNTS:
+    if who in COUNTS:
         return f"Contando {site.name}."
-    return f"{site.name} em foco, mas a sala está vazia: não conta."
+    return f"{site.name} em foco, mas ninguém mexe nem toca vídeo: não conta."
 
 
 class SiteRow(Adw.ExpanderRow):
@@ -187,7 +187,7 @@ class Window(Adw.ApplicationWindow):
         page = Adw.PreferencesPage()
         page.add(self._build_now())
         self.sites_group = Adw.PreferencesGroup(
-            title="Sites", description="Tempo contado só com o site em foco e você na frente da câmera.")
+            title="Sites", description="Tempo contado só com o site em foco e você mexendo ou vendo vídeo.")
         page.add(self.sites_group)
         page.add(self._build_add())
 
@@ -218,7 +218,7 @@ class Window(Adw.ApplicationWindow):
         self.now_text.add_css_class("now-text")
         cam = Gtk.Box(spacing=6, halign=Gtk.Align.CENTER)
         cam.add_css_class("camera")
-        cam.append(Gtk.Image(icon_name="camera-web-symbolic"))
+        cam.append(Gtk.Image(icon_name="input-mouse-symbolic"))
         self.camera = Gtk.Label()
         cam.append(self.camera)
         for w in (self.pill, self.now_text, cam):
@@ -351,7 +351,7 @@ class Window(Adw.ApplicationWindow):
 
         focus = live.get("focus") if running else None
         site = engine.status(rules, state["sites"], focus, now) if focus in rules else None
-        camera = live.get("camera", "repouso") if running else "repouso"
+        camera = live.get("presence", "repouso") if running else "repouso"
         if site and not site.resting:
             self._set_pill(site.pill, site.pill_state if camera in COUNTS else "idle")
         elif site:

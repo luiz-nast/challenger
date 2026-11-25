@@ -1,7 +1,7 @@
 """Lógica pura do Challenger: regras, qual site está na janela e a contagem.
 
-Sem GTK, câmera nem D-Bus: tudo aqui recebe o relógio e o mundo como argumentos,
-para testar com relógio falso, câmera falsa e foco falso.
+Sem GTK, sensor nem D-Bus: tudo aqui recebe o relógio e o mundo como argumentos,
+para testar com relógio falso, presença falsa e foco falso.
 
 Regra de um site: `name`, `domains`, `session_minutes` (tempo contado da sessão ativa)
 e `rest_minutes` (descanso pelo relógio). Estado de um site: `used` (segundos contados

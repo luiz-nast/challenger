@@ -112,7 +112,7 @@ class CountTest(unittest.TestCase):
         sites, t0 = {}, at("2026-11-21 10:00:00")
         run(sites, RULES, t0, 10, "youtube.com")
         run(sites, RULES, t0 + 10, 10, None)  # outro app em foco
-        run(sites, RULES, t0 + 20, 10, "youtube.com", human=False)  # sala vazia
+        run(sites, RULES, t0 + 20, 10, "youtube.com", human=False)  # agente sozinho
         self.assertEqual(sites["youtube.com"]["used"], 10)
         self.assertEqual(sites["instagram.com"]["used"], 0)
 

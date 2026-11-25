@@ -31,8 +31,8 @@ def sample_data(pending: bool) -> None:
                                 "instagram.com": {"used": 420, "rest_until": now + 612},
                                 "tiktok.com": {"used": 95, "rest_until": 0},
                                 "pinterest.com": {"used": 0, "rest_until": 0}},
-                      "live": {"focus": "youtube.com", "camera": "voce", "source": "challenger"}})
-    config = {"rules": engine.default_rules(), "next": None, "camera": store.CAMERA_DEFAULTS}
+                      "live": {"focus": "youtube.com", "presence": "mexendo", "source": "challenger"}})
+    config = {"rules": engine.default_rules(), "next": None, "idle_seconds": store.IDLE_DEFAULT}
     if pending:
         wanted = engine.rules_wanted(config)
         wanted["youtube.com"]["session_minutes"] = 30

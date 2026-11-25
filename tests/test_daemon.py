@@ -1,4 +1,4 @@
-"""Daemon com foco falso, câmera falsa e relógio falso: o caminho inteiro de um segundo."""
+"""Daemon com foco falso, presença falsa e relógio falso: o caminho inteiro de um segundo."""
 
 import shutil
 import unittest
@@ -12,20 +12,13 @@ CHROME, FIREFOX = "google-chrome", "firefox_firefox"
 MIN, HOUR = 60, 3600
 
 
-class FakeCamera:
-    def __init__(self, state="voce"):
-        self.state, self.samples, self.open = state, 0, False
+class FakePresence:
+    def __init__(self, state="mexendo"):
+        self.state, self.samples = state, 0
 
     def sample(self):
         self.samples += 1
-        self.open = True
         return self.state
-
-    def idle(self):
-        self.open = False
-
-    def close(self):
-        self.open = False
 
 
 class FakeClock:
@@ -65,10 +58,10 @@ def fresh():
 
 
 class Harness:
-    def __init__(self, cam="voce", clock=None):
+    def __init__(self, cam="mexendo", clock=None):
         self.focus = Focus("challenger", "", "")
-        self.cam, self.clock = FakeCamera(cam), clock or FakeClock()
-        self.d = Daemon(ui=False, get_focus=lambda: self.focus, camera=self.cam, clock=self.clock)
+        self.cam, self.clock = FakePresence(cam), clock or FakeClock()
+        self.d = Daemon(ui=False, get_focus=lambda: self.focus, presence=self.cam, clock=self.clock)
         self.d.pill, self.d.cover = StubPill(), StubCover()
 
     def window(self, wm_class, title):
@@ -89,12 +82,12 @@ class StoreTest(unittest.TestCase):
 
     def test_broken_files_fall_back_to_defaults(self):
         store.config_file().parent.mkdir(parents=True, exist_ok=True)
-        store.config_file().write_text('{"rules": {"x.com": {"name": 3}}, "camera": {"dark_mean": "35", "smoothing": -1}}')
+        store.config_file().write_text('{"rules": {"x.com": {"name": 3}}, "idle_seconds": "30"}')
         store.state_file().parent.mkdir(parents=True, exist_ok=True)
         store.state_file().write_text("{corrompido")
         cfg = store.load_config()
         self.assertEqual(cfg["rules"], engine.default_rules())
-        self.assertEqual(cfg["camera"], store.CAMERA_DEFAULTS)
+        self.assertEqual(cfg["idle_seconds"], store.IDLE_DEFAULT)
         self.assertEqual(store.load_state()["sites"], {})
 
     def test_atomic_write_leaves_no_temp_files(self):
@@ -149,40 +142,33 @@ class CountingTest(unittest.TestCase):
         self.assertEqual(h.used("youtube.com"), 0)
 
 
-class CameraPathTest(unittest.TestCase):
+class PresencePathTest(unittest.TestCase):
     def setUp(self):
         fresh()
 
-    def check(self, cam_state, counts):
-        h = Harness(cam_state)
+    def check(self, who, counts):
+        h = Harness(who)
         h.window(CHROME, "TikTok - Make Your Day - Google Chrome")
         h.run(10)
-        self.assertEqual(h.used("tiktok.com"), 10 if counts else 0, cam_state)
-        self.assertEqual(h.d.state["live"]["camera"], cam_state)
+        self.assertEqual(h.used("tiktok.com"), 10 if counts else 0, who)
+        self.assertEqual(h.d.state["live"]["presence"], who)
 
-    def test_face(self):
-        self.check("voce", True)
+    def test_typing_or_mouse(self):
+        self.check("mexendo", True)
 
-    def test_empty_room(self):
-        self.check("vazia", False)
+    def test_video_playing(self):
+        self.check("video", True)
 
-    def test_covered(self):
-        self.check("tapada", True)
+    def test_agent_alone(self):
+        self.check("ausente", False)
 
-    def test_camera_error(self):
-        self.check("erro", True)
-
-    def test_unknown_counts(self):
-        self.check("desconhecido", True)
-
-    def test_camera_only_while_active_site_in_front(self):
+    def test_presence_only_while_active_site_in_front(self):
         h = Harness()
         h.window(CHROME, "Pinterest - Google Chrome")
         h.run(7 * MIN)  # até o descanso
         samples = h.cam.samples
-        h.run(30)  # em descanso, em foco: câmera não precisa
+        h.run(30)  # em descanso, em foco: não precisa perguntar
         self.assertEqual(h.cam.samples, samples)
-        self.assertFalse(h.cam.open)
 
 
 class RestAndOverlayTest(unittest.TestCase):
@@ -196,7 +182,7 @@ class RestAndOverlayTest(unittest.TestCase):
         self.assertTrue(h.d.pill.visible)
         self.assertEqual(h.d.pill.text, "Instagram 00:03 / 07:00")
         self.assertEqual(h.d.pill.state, "playing")
-        h.cam.state = "vazia"
+        h.cam.state = "ausente"
         h.run(1)
         self.assertEqual(h.d.pill.state, "idle")
 

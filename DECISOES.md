@@ -137,3 +137,18 @@ relógio (pede senha de administrador), vídeo tocando atrás da tela (não paus
 
 - `PROMPT.md` fica fora do Git (`.gitignore`): é a conversa comigo, não o produto.
 - Prints em `docs/prints/` são gerados com dados de exemplo, nunca da tela real.
+
+## D13. Sem câmera: teclado/mouse ou vídeo tocando (25/11/2026)
+
+Substitui o D4. Na prática o rosto falhou: deitado com o notebook no peito, ou no escuro, a câmera
+não via o rosto e o tempo não contava. A pergunta certa não é "tem rosto?", é "é agente?". O
+agente mexe no Chrome por dentro (pela extensão): não gera teclado nem mouse no sistema e quase
+nunca dá play em vídeo.
+
+- Conta se houve teclado ou mouse nos últimos **30 s** (`org.gnome.Mutter.IdleMonitor`) **ou** se
+  algum navegador está tocando mídia (MPRIS, só leitura). Senão é agente: não conta.
+- 30 s e não 90 s (o Maverick usava 90): pedido do usuário; menos tempo de agente contado. Muda em
+  `config.json`, chave `idle_seconds`.
+- GNOME sem resposta: conta (falha fechada).
+- Saem OpenCV, o modelo YuNet, o venv e o pip: o instalador usa só o Python do sistema.
+- Furos: vídeo mudo sem mexer (pode não aparecer no MPRIS); agente dando play em vídeo com som.

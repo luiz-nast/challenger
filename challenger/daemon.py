@@ -1,7 +1,7 @@
-"""Daemon. A cada segundo: janela em foco → site da lista? → câmera → conta 1 s;
+"""Daemon. A cada segundo: janela em foco → site da lista? → tem gente? → conta 1 s;
 desenha a pílula e, com o site em descanso, a tela de descanso.
 
-Duas linhas de execução, como no Maverick: a de trabalho pergunta ao D-Bus e à câmera
+Duas linhas de execução, como no Maverick: a de trabalho pergunta ao D-Bus
 (podem demorar); a principal só desenha a partir do último retrato, num relógio próprio.
 """
 
@@ -15,7 +15,7 @@ import time
 from dataclasses import dataclass
 
 from . import engine, focus, store
-from .camera import COUNTS, Camera
+from .presence import COUNTS, Presence
 
 log = logging.getLogger("challenger")
 HIDE_AFTER_SECONDS = 2  # a pílula fica 2 s com o último conteúdo, como no Maverick
@@ -36,11 +36,11 @@ class Snapshot:
 
 
 class Daemon:
-    def __init__(self, ui: bool = True, get_focus=focus.get, camera=None, clock=time.time) -> None:
+    def __init__(self, ui: bool = True, get_focus=focus.get, presence=None, clock=time.time) -> None:
         self.config, self._config_mtime = store.load_config(), store.mtime(store.config_file())
         self.state = store.load_state()
         self.get_focus, self.clock = get_focus, clock
-        self.camera = camera or Camera(self.config["camera"])
+        self.presence = presence or Presence(self.config["idle_seconds"])
         self.pill = self.cover = None
         if ui:
             from .overlay import Cover, Pill  # GTK só quando há tela
@@ -59,6 +59,8 @@ class Daemon:
         """A janela grava a config; o daemon a relê quando o arquivo muda."""
         if (m := store.mtime(store.config_file())) != self._config_mtime:
             self._config_mtime, self.config = m, store.load_config()
+            if isinstance(self.presence, Presence):
+                self.presence.limit = self.config["idle_seconds"]
             log.info("Config recarregada")
 
     def tick(self) -> Snapshot:
@@ -71,20 +73,16 @@ class Daemon:
         self._last_focus = f
         site = engine.site_for_window(f.wm_class, f.title, rules) if f.source and not f.locked else None
         before = engine.status(rules, self.state["sites"], site, now) if site else None
-        if before and not before.resting:  # câmera só quando um site liberado está em foco
-            camera = self.camera.sample()
-        else:
-            self.camera.idle()
-            camera = "repouso"
-        counting = bool(site) and camera in COUNTS
+        who = self.presence.sample() if before and not before.resting else "repouso"
+        counting = bool(site) and who in COUNTS
         changed = engine.tick(self.state["sites"], rules, now, site, counting)
         after = engine.status(rules, self.state["sites"], site, now) if site else None
-        live = {"focus": site, "camera": camera, "source": f.source}
+        live = {"focus": site, "presence": who, "source": f.source}
         if changed or live != self.state.get("live"):
             self.state["live"] = live
             store.save_state(self.state)
-        if (event := (site, camera, after.resting if after else None, f.source)) != self._last_log:
-            log.info("foco=%s câmera=%s descanso=%s extensão=%s", *event)
+        if (event := (site, who, after.resting if after else None, f.source)) != self._last_log:
+            log.info("foco=%s presença=%s descanso=%s extensão=%s", *event)
             self._last_log = event
         self.snapshot = Snapshot(time.monotonic(), after, counting)
         if self._threaded:
@@ -175,7 +173,6 @@ class Daemon:
         finally:
             self._stop.set()
             worker.join(timeout=3)
-            self.camera.close()
             if not worker.is_alive():
                 store.save_state(self.state)
             log.info("Encerrado; estado salvo")

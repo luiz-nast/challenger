@@ -12,7 +12,7 @@ from .engine import default_rules
 
 APP_ID = "io.github.luiz_nast.Challenger"
 APP_NAME = "Challenger"
-CAMERA_DEFAULTS = {"dark_mean": 35, "dark_std": 10, "smoothing": 3, "face_score": 0.6}
+IDLE_DEFAULT = 30  # s sem teclado/mouse (e sem mídia tocando) até parar de contar
 
 
 def config_file() -> Path:
@@ -59,10 +59,10 @@ def load_config() -> dict:
     nxt = data.get("next")
     if not (isinstance(nxt, dict) and isinstance(nxt.get("from"), str) and _valid_rules(nxt.get("rules"))):
         nxt = None
-    given = data.get("camera") if isinstance(data.get("camera"), dict) else {}
-    camera = {k: given[k] if type(given.get(k)) in (int, float) and given[k] >= 0 else v for k, v in CAMERA_DEFAULTS.items()}
+    idle = data.get("idle_seconds")
+    idle = idle if type(idle) in (int, float) and idle > 0 else IDLE_DEFAULT
     rules = data.get("rules") if _valid_rules(data.get("rules")) else default_rules()
-    return {"rules": rules, "next": nxt, "camera": camera}
+    return {"rules": rules, "next": nxt, "idle_seconds": idle}
 
 
 def save_config(config: dict) -> None:

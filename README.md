@@ -1,6 +1,6 @@
 # Challenger
 
-Controle de tempo de sites no Ubuntu que **só conta quando é você olhando**.
+Controle de tempo de sites no Ubuntu que **só conta quando é você usando**, não os agentes de IA.
 
 Substitui o [Maverick](https://github.com/luiz-nast/maverick) no computador. YouTube, Instagram,
 TikTok e Pinterest têm uma sessão de uso; acabou a sessão, o site descansa, com uma tela por cima
@@ -12,7 +12,8 @@ do navegador até liberar.
 
 Agentes de IA agora usam o meu Chrome, pela extensão do Claude, com o mesmo login das minhas
 contas. Um controle de tempo comum conta o tempo dos agentes como se fosse meu. O Challenger
-olha pela câmera, no próprio computador, para saber se tem gente na frente da tela.
+separa os dois por algo que o agente não faz: os agentes mexem no Chrome por dentro, sem teclado,
+sem mouse e quase nunca dando play em vídeo.
 
 E nunca atrapalha os agentes: não fecha aba, não fecha o navegador, não recarrega página, não
 muda URL e não mexe no perfil nem nas extensões do navegador.
@@ -26,19 +27,18 @@ A cada segundo, o site ganha 1 s quando as duas coisas são verdade:
    onde o próprio site põe o nome (`Vídeo - YouTube`, `(3) Instagram`, `#fyp | TikTok`,
    `Pin em ... | Pinterest`) ou do endereço que o navegador mostra enquanto a aba carrega
    (`m.youtube.com/...`, `youtu.be/...`, `br.pinterest.com/...`). Subdomínios contam.
-2. **A câmera diz que é humano olhando:**
+2. **Tem gente usando:**
 
-| Situação da câmera | Conta tempo? | Por quê |
+| Situação | Conta tempo? | Por quê |
 |---|---|---|
-| Rosto detectado | **sim** | é você vendo |
-| Câmera tapada, imagem escura ou quase uniforme | **sim** | tentativa de burlar |
-| Câmera desligada, ocupada, sem OpenCV ou com erro | **sim** | falha fechada |
-| Sala vazia (imagem normal, sem rosto) | **não** | é agente trabalhando sozinho |
+| Teclado ou mouse nos últimos 30 s | **sim** | é você rolando, clicando, digitando |
+| Vídeo tocando no navegador (mesmo sem mexer) | **sim** | você assistindo, deitado ou no escuro |
+| Ninguém mexe há 30 s e nada toca | **não** | é agente trabalhando sozinho |
+| GNOME não responde | **sim** | falha fechada |
 
-- O estado da câmera só muda depois de **3 leituras seguidas iguais** (1 por segundo): uma
-  piscada do detector não troca nada. Até a primeira decisão, conta.
-- A câmera **só liga** quando um site da lista, liberado, está em foco, e desliga 10 s depois.
-  A luz da câmera acesa nessa hora é o Challenger.
+- O tempo sem teclado/mouse vem do próprio GNOME; o vídeo tocando, do MPRIS (o mesmo que mostra
+  a mídia na barra do GNOME). Nada de câmera.
+- Os 30 s mudam em `~/.config/challenger/config.json`, chave `idle_seconds`.
 - Tela bloqueada não conta.
 
 ## Regras
@@ -85,18 +85,18 @@ tempo até liberar, a hora que libera e a pílula de tempo.
 ## A pílula
 
 A mesma pílula do Maverick, mesmo visual e mesmo comportamento: canto superior direito, com
-`Site usado / sessão`, verde contando, amarela no último minuto, cinza quando a sala está vazia
+`Site usado / sessão`, verde contando, amarela no último minuto, cinza quando ninguém está usando
 (não conta). Fica 2 s depois que o site sai de foco.
 
 ![Pílula do Maverick e do Challenger lado a lado](docs/prints/pilula-maverick-x-challenger.png)
 
 ## Privacidade
 
-- Nenhuma imagem da câmera é gravada em disco nem sai do computador. Cada quadro é analisado na
-  memória e descartado. A detecção de rosto é local (OpenCV, modelo YuNet de 227 KB).
+- Sem câmera. O Challenger só lê se houve teclado/mouse (não o que foi digitado) e se há mídia
+  tocando. Nada sai do computador.
 - Dados de uso e regras pessoais ficam em `~/.config/challenger/config.json` e
   `~/.local/share/challenger/state.json`, fora do repositório.
-- O repositório tem só o código, as regras padrão e o modelo de rosto.
+- O repositório tem só o código e as regras padrão.
 
 ## Instalar e rodar
 
@@ -112,8 +112,7 @@ git clone https://github.com/luiz-nast/challenger ~/challenger
 
 O instalador:
 
-1. Usa o Python do sistema com PyGObject e GTK. Se o sistema não tiver OpenCV, cria um venv em
-   `~/.local/share/challenger/venv` e instala `opencv-python-headless` nele.
+1. Usa o Python do sistema com PyGObject e GTK, que já vêm no Ubuntu. Nada de pip.
 2. Cria o comando `~/.local/bin/challenger`, o atalho **Challenger** no menu e o ícone.
 3. Instala a extensão do GNOME `challenger@luiz-nast.github.io`, que diz qual janela está em
    foco. No Wayland, só o GNOME sabe isso. Ela liga no próximo login; até lá o Challenger usa a
@@ -127,15 +126,11 @@ Comandos:
 |---|---|
 | `challenger` | abre a janela |
 | `challenger status` | mostra sessão, descanso e pendências no terminal |
-| `challenger check` | mostra a janela em foco, o site e 4 leituras da câmera |
+| `challenger check` | mostra a janela em foco, o site e a presença agora |
 | `systemctl --user status challenger` | estado do serviço |
 | `journalctl --user -u challenger -f` | log ao vivo |
 | `./install.sh --remove` | desinstala (seus dados ficam) |
 
-Opções da câmera em `~/.config/challenger/config.json`, chave `camera`: `dark_mean` (brilho médio
-abaixo do qual é "tapada", padrão 35), `dark_std` (variação abaixo da qual é "tapada", padrão
-10), `smoothing` (leituras iguais para mudar, padrão 3), `face_score` (confiança mínima do rosto,
-padrão 0.6).
 
 ## Testes
 
@@ -144,19 +139,20 @@ padrão 0.6).
 ```
 
 ```bash
-CHALLENGER_REAL=1 ~/.local/share/challenger/venv/bin/python -m pytest -v tests/integration
+CHALLENGER_REAL=1 /usr/bin/python3 -m pytest -v tests/integration
 ```
 
-Os de lógica usam relógio falso, câmera falsa e foco falso. Os de integração (tela desbloqueada)
-usam a câmera real, a extensão do GNOME real, a tela de descanso real e um Chrome e um Firefox
+Os de lógica usam relógio falso, presença falsa e foco falso. Os de integração (tela desbloqueada)
+usam o GNOME real, a extensão do GNOME real, a tela de descanso real e um Chrome e um Firefox
 de teste, com perfil temporário, abrindo páginas locais.
 
 ## Limites conhecidos
 
 - Quem tem acesso à conta pode parar o serviço, editar os arquivos ou mudar o relógio. O objetivo é
   atrito, não uma tranca.
-- Quarto escuro com agente trabalhando sozinho conta (imagem escura = "tapada", como manda a regra).
-- Rosto muito de lado ou fora do quadro pode virar "sala vazia".
+- Vídeo **mudo** assistido sem tocar em nada por 30 s pode parar de contar (vídeo sem som pode não aparecer no MPRIS).
+- Agente que dá play em vídeo com som, ou você mexendo no mouse enquanto o agente usa o site em
+  foco: conta como você.
 - O som de um vídeo em descanso continua por baixo da tela: pausar mexeria na página do agente.
 - O site é reconhecido pelo título da janela. Se um site mudar o formato do título, ajuste em
   `challenger/engine.py` (há testes com os títulos de hoje).
@@ -164,5 +160,4 @@ de teste, com perfil temporário, abrindo páginas locais.
 Decisões e motivos: [DECISOES.md](DECISOES.md). Plano: [docs/PLANO.md](docs/PLANO.md).
 Aprendizado do Maverick: [docs/aprendizado-maverick.md](docs/aprendizado-maverick.md).
 
-Licença MIT. O modelo de rosto YuNet é do [OpenCV Zoo](https://github.com/opencv/opencv_zoo),
-licença MIT ([`challenger/face_detection_yunet.LICENSE`](challenger/face_detection_yunet.LICENSE)).
+Licença MIT.

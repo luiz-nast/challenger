@@ -23,27 +23,21 @@ def _status() -> int:
     for key, change in engine.pending(config, today).items():
         print(f"pendente: {key} {change} (vale a partir de amanhã)")
     live = state.get("live") or {}
-    print(f"câmera: {live.get('camera', '?')}  foco: {live.get('focus') or 'nenhum site'}  "
+    print(f"presença: {live.get('presence', '?')}  foco: {live.get('focus') or 'nenhum site'}  "
           f"extensão: {live.get('source') or 'nenhuma'}")
     return 0
 
 
 def _check() -> int:
     from . import focus
-    from .camera import Camera
+    from .presence import Presence
 
     f = focus.get()
     rules = engine.rules_today(store.load_config(), engine.day_of(time.time()))
     print(f"extensão: {f.source}  tela bloqueada: {f.locked}")
     print(f"janela: {f.wm_class!r} {f.title!r}")
     print(f"navegador: {engine.is_browser(f.wm_class, f.title)}  site: {engine.site_for_window(f.wm_class, f.title, rules)}")
-    cam = Camera(store.load_config()["camera"])
-    readings = []
-    for _ in range(4):
-        readings.append(cam.sample())
-        time.sleep(0.5)
-    cam.close()
-    print(f"câmera (suavizada, 4 leituras): {readings}")
+    print(f"presença: {Presence(store.load_config()['idle_seconds']).sample()}")
     return 0
 
 

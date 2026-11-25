@@ -18,7 +18,7 @@ FORBIDDEN = {
     "fechar/matar processo": r"\bos\.kill\b|\bkillpg\b|\bpkill\b|\bkillall\b|\bsignal\.SIGKILL\b|send_signal",
     "automação de janela": r"xdotool|wmctrl|ydotool|XTest|\.activate\(|\.delete\(|\.minimize\(|move_resize",
     "navegador por dentro": r"remote-debugging|devtools|Page\.reload|chrome\.tabs|webdriver|playwright|selenium|CDP",
-    "mídia do navegador": r"org\.mpris|MediaPlayer2|PlayPause|\.Pause\b",
+    "mexer na mídia (só ler é permitido)": r"PlayPause|\"Pause\"|\"Play\"|\"Stop\"|\"Next\"|OpenUri|\"Seek\"",
     "gravar quadro da câmera": r"imwrite|VideoWriter|imencode|\.tofile\(|np\.save|savez",
     "abrir URL": r"webbrowser|xdg-open|gio\", \"open|Gtk\.show_uri|launch_default_for_uri",
     "rede (nada sai do computador)": r"urllib\.request|http\.client|\brequests\b|\bsocket\b|aiohttp|websocket|SocketClient",
@@ -53,8 +53,8 @@ class SafetyTest(unittest.TestCase):
 
     def test_readme_has_what_the_prompt_asks(self):
         readme = (ROOT / "README.md").read_text()
-        for needle in ("## Por que existe", "## Como conta o tempo", "Rosto detectado", "Câmera tapada",
-                       "Câmera desligada", "Sala vazia", "## Regras", "20 min", "4 h", "7 min", "15 min",
+        for needle in ("## Por que existe", "## Como conta o tempo", "Teclado ou mouse", "Vídeo tocando",
+                       "Ninguém mexe", "## Regras", "20 min", "4 h", "7 min", "15 min",
                        "## Privacidade", "## Instalar e rodar", "inicia sozinho com a", "./install.sh --remove"):
             self.assertIn(needle, readme)
 
@@ -65,11 +65,6 @@ class SafetyTest(unittest.TestCase):
         self.assertEqual(sorted(r.stdout.split()), sorted(names))
         r = subprocess.run(["git", "check-ignore", "docs/prints/janela-claro.png"], cwd=ROOT)
         self.assertEqual(r.returncode, 1)  # prints de exemplo vão para o repo
-
-    def test_camera_frames_never_leave_memory(self):
-        text = (ROOT / "challenger" / "camera.py").read_text()
-        self.assertNotRegex(text, r"(?<![\w.])open\(|write\(|\.save|requests|urllib|socket")
-
 
 if __name__ == "__main__":
     unittest.main()

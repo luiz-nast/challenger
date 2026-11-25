@@ -1,9 +1,9 @@
-"""Integração de verdade no Ubuntu: câmera real, extensão do GNOME real, Chrome e Firefox
+"""Integração de verdade no Ubuntu: presença real, extensão do GNOME real, Chrome e Firefox
 reais (perfil TEMPORÁRIO, nunca o seu) abrindo páginas locais, e a tela de descanso real.
 
     CHALLENGER_REAL=1 /usr/bin/python3 -m pytest -v tests/integration
 
-Exige a tela desbloqueada. Nenhum quadro da câmera é gravado. Os navegadores de teste são
+Exige a tela desbloqueada. Os navegadores de teste são
 abertos e fechados pelo próprio teste; o seu Chrome e o seu Firefox não são tocados.
 """
 
@@ -22,7 +22,7 @@ from pathlib import Path
 REAL = os.environ.get("CHALLENGER_REAL") == "1"
 os.environ["GDK_BACKEND"] = "x11"
 
-from challenger import camera, engine, focus, store  # noqa: E402
+from challenger import engine, focus, presence, store  # noqa: E402
 
 PAGE = """<!doctype html><meta charset="utf-8"><title>{title}</title>
 <body style="font:40px sans-serif;background:{bg};margin:0"><h1>{title}</h1><script>
@@ -36,7 +36,7 @@ SHOTS = Path(tempfile.gettempdir()) / "challenger-prints-reais"
 
 
 def pause_real_service(cls):
-    """O Challenger de verdade, se estiver rodando, usaria a câmera e contaria as páginas de teste
+    """O Challenger de verdade, se estiver rodando, contaria as páginas de teste
     no seu estado real: fica parado durante o teste e volta no fim."""
     if subprocess.run(["systemctl", "--user", "is-active", "--quiet", "challenger.service"]).returncode == 0:
         subprocess.run(["systemctl", "--user", "stop", "challenger.service"], check=True)
@@ -188,47 +188,32 @@ class RealEnvironmentTest(unittest.TestCase):
 
     def test_service_starts_with_the_session(self):
         r = subprocess.run(["systemctl", "--user", "is-enabled", "challenger.service"], capture_output=True, text=True)
+        if r.stdout.strip() == "disabled":
+            self.skipTest("serviço pausado de propósito (systemctl --user enable --now challenger.service)")
         self.assertEqual(r.stdout.strip(), "enabled")
         wants = Path.home() / ".config/systemd/user/graphical-session.target.wants/challenger.service"
         self.assertTrue(wants.exists())
 
-    def test_real_camera(self):
-        """A câmera abre, aquece e dá uma leitura que não é erro. Nada vai para disco."""
-        stopped = subprocess.run(["systemctl", "--user", "is-active", "--quiet", "challenger.service"]).returncode == 0
-        if stopped:  # o serviço real pode estar com a câmera aberta
-            subprocess.run(["systemctl", "--user", "stop", "challenger.service"], check=True)
-            self.addCleanup(subprocess.run, ["systemctl", "--user", "start", "challenger.service"], check=True)
-        before = set(Path(tempfile.gettempdir()).iterdir())
-        cam = camera.Camera(store.load_config()["camera"])
-        states = []
-        try:
-            for _ in range(12):
-                states.append(cam.sample())
-                time.sleep(0.5)
-        finally:
-            cam.close()
-        self.assertFalse(cam.is_open)
-        self.assertIn(states[-1], {"voce", "tapada", "vazia"}, states)
-        new = [p for p in set(Path(tempfile.gettempdir()).iterdir()) - before if p.suffix in {".jpg", ".png", ".jpeg"}]
-        self.assertEqual(new, [])
-        print(f"\n  câmera real, leituras suavizadas: {states}")
+    def test_real_presence(self):
+        """GNOME responde o tempo sem teclado/mouse e o MPRIS responde; a leitura é uma das três."""
+        bus = presence.Gio.bus_get_sync(presence.Gio.BusType.SESSION, None)
+        idle = presence.idle_seconds(bus)
+        self.assertIsNotNone(idle, "o GNOME não respondeu o tempo ocioso")
+        playing = presence.media_playing(bus)
+        who = presence.Presence(store.load_config()["idle_seconds"]).sample()
+        self.assertIn(who, {"mexendo", "video", "ausente"})
+        print(f"\n  presença real: ocioso {idle:.1f} s, mídia tocando: {playing}, leitura: {who}")
 
 
-class FixedCamera:
-    """Câmera fixa em "você": isola o teste dos navegadores de quem está na frente."""
+class FixedPresence:
+    """Presença fixa em "mexendo": isola o teste dos navegadores de quem está na frente."""
 
     def __init__(self):
         self.samples = 0
 
     def sample(self):
         self.samples += 1
-        return "voce"
-
-    def idle(self):
-        pass
-
-    def close(self):
-        pass
+        return "mexendo"
 
 
 @unittest.skipUnless(REAL, "integração real: CHALLENGER_REAL=1")
@@ -254,13 +239,13 @@ class RealBrowsersTest(unittest.TestCase):
         # Sessão de 6 s e descanso de 1 h no YouTube e no Instagram, para caber num teste.
         for key in ("youtube.com", "instagram.com"):
             rules[key] = {**rules[key], "session_minutes": 0.1, "rest_minutes": 60}
-        store.save_config({"rules": rules, "next": None, "camera": store.CAMERA_DEFAULTS})
+        store.save_config({"rules": rules, "next": None, "idle_seconds": store.IDLE_DEFAULT})
 
     def daemon(self):
         from challenger import overlay  # noqa: F401  (GTK 3 antes de qualquer outro Gtk)
         from challenger.daemon import Daemon
 
-        return Daemon(ui=True, camera=FixedCamera())
+        return Daemon(ui=True, presence=FixedPresence())
 
     def pump(self, d, seconds):
         from gi.repository import Gtk

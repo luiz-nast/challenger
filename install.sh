@@ -1,6 +1,5 @@
 #!/bin/sh
 # Instala o Challenger para este usuário, sem sudo:
-#   - Python com OpenCV (venv que enxerga o GTK do sistema), se o sistema não tiver OpenCV;
 #   - comando ~/.local/bin/challenger, atalho no menu, ícone;
 #   - extensão do GNOME que diz a janela em foco (carrega no próximo login);
 #   - serviço systemd do usuário que inicia sozinho com a sessão.
@@ -26,14 +25,8 @@ if [ "${1:-}" = "--remove" ]; then
 fi
 
 PY=/usr/bin/python3
-if ! $PY -c 'import cv2' 2>/dev/null; then
-    VENV=$DATA/challenger/venv
-    # --copies: python próprio, fora dos pacotes do sistema; o apport não guarda core dump dele.
-    [ -x "$VENV/bin/python" ] && [ ! -L "$VENV/bin/python" ] || { rm -rf "$VENV"; $PY -m venv --system-site-packages --copies "$VENV"; }
-    "$VENV/bin/pip" install --quiet --upgrade opencv-python-headless
-    PY=$VENV/bin/python
-fi
-"$PY" -c 'import gi, cv2, numpy' || { echo "Falta PyGObject/numpy no Python do sistema." >&2; exit 1; }
+"$PY" -c 'import gi' || { echo "Falta PyGObject no Python do sistema (python3-gi)." >&2; exit 1; }
+rm -rf "$DATA/challenger/venv"  # sobra da versão com câmera (OpenCV)
 
 mkdir -p "$(dirname "$BIN")" "$(dirname "$UNIT")" "$(dirname "$DESKTOP")" "$(dirname "$ICON")" "$EXT"
 cat > "$BIN" <<EOS
@@ -54,7 +47,6 @@ Type=simple
 ExecStart=$BIN daemon
 Restart=always
 RestartSec=3
-# Sem core dump: a memória do processo pode ter um quadro da câmera.
 LimitCORE=0
 
 [Install]

@@ -182,3 +182,10 @@ Recusados: rotacionar o quadro para achar rosto deitado (mais código para um ca
 limites do README); Xvfb para os testes de janela (a tela real funciona e é mais fiel); trocar a
 extensão por um teste com `gnome-shell --headless` (pesado; a extensão é a mesma do Maverick com
 outro caminho, e o teste estático confere o metadata).
+
+## Troca da câmera por presença (25/11/2026)
+
+Motivo e regra no D13. Passos: `presence.py` no lugar de `camera.py` (mesma forma: `sample()`
+devolve a leitura); daemon, janela e `check` trocam "câmera" por "presença"; `idle_seconds` na
+config; saem modelo, OpenCV e venv; testes `test_presence.py` (tabela e D-Bus real), daemon com
+presença falsa, integração com presença real.
