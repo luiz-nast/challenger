@@ -84,8 +84,8 @@ def overlay() -> None:
 
     ov._css()
     OUT.mkdir(parents=True, exist_ok=True)
-    states = [("Instagram 03:12 / 07:00", "playing"), ("YouTube 19:12 / 20:00", "warning"),
-              ("TikTok 05:40 / 07:00", "idle"), ("⛔ YouTube 20:00 / 20:00", "blocked")]
+    states = [("Instagram 03:12 / 07:00", "playing"), ("YouTube 12:12 / 13:00", "warning"),
+              ("TikTok 05:40 / 07:00", "idle"), ("⛔ YouTube 13:00 / 13:00", "blocked")]
     # Pílula do Challenger nos quatro estados, empilhadas.
     pills = [snap(ov.pill_label(t, s)) for t, s in states]
     save_column(pills, OUT / "pilula-estados.png", GdkPixbuf, bg=0xF2F2F2FF)
@@ -120,7 +120,7 @@ def overlay() -> None:
     content.update("Instagram em descanso", "10:12", "Libera às 21:47.", "⛔ Instagram 07:00 / 07:00")
     snap(content, 1366, 768, "cover").savev(str(OUT / "overlay-descanso.png"), "png", [], [])
     content = ov.CoverContent()
-    content.update("YouTube em descanso", "3:59:12", "Libera às 01:41.", "⛔ YouTube 20:00 / 20:00")
+    content.update("YouTube em descanso", "21:12", "Libera às 01:41.", "⛔ YouTube 13:00 / 13:00")
     snap(content, 1366, 768, "cover").savev(str(OUT / "overlay-descanso-youtube.png"), "png", [], [])
     if any(diffs):
         sys.exit("a pílula difere da do Maverick")

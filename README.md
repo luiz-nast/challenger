@@ -49,7 +49,7 @@ zerado.
 
 | Site | Domínios | Sessão ativa | Descanso |
 |---|---|---|---|
-| YouTube | `youtube.com`, `youtu.be`, `m.youtube.com` | 20 min | 4 h |
+| YouTube | `youtube.com`, `youtu.be`, `m.youtube.com` | 13 min | 22 min |
 | Instagram | `instagram.com` | 7 min | 15 min |
 | TikTok | `tiktok.com` | 7 min | 15 min |
 | Pinterest | `pinterest.com`, `br.pinterest.com`, `pin.it` | 7 min | 15 min |

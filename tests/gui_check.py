@@ -56,11 +56,11 @@ class App(gui.App):
         today = engine.day_of(time.time())
         check(list(win.rows) == ["youtube.com", "instagram.com", "tiktok.com", "pinterest.com"], "quatro sites padrão")
         yt, ig = win.rows["youtube.com"], win.rows["instagram.com"]
-        check(yt.time.get_text() == "12:14 / 20:00", f"YouTube usado/sessão ({yt.time.get_text()})")
-        check(yt.get_subtitle() == "Ativo, restam 07:46", f"YouTube ativo ({yt.get_subtitle()})")
+        check(yt.time.get_text() == "12:14 / 13:00", f"YouTube usado/sessão ({yt.time.get_text()})")
+        check(yt.get_subtitle() == "Ativo, restam 00:46", f"YouTube ativo ({yt.get_subtitle()})")
         check(ig.get_subtitle().startswith("Descanso até"), f"Instagram em descanso ({ig.get_subtitle()})")
         check(ig.time.get_text().startswith("libera em 10:"), f"Instagram tempo restante ({ig.time.get_text()})")
-        check(win.pill.get_text() == "YouTube 12:14 / 20:00", "pílula com o site em foco")
+        check(win.pill.get_text() == "YouTube 12:14 / 13:00", "pílula com o site em foco")
         check(win.pill.has_css_class("pill") and win.pill.has_css_class("idle"), "pílula cinza com ninguém mexendo")
         check(win.camera.get_text() == "ninguém mexendo", "presença discreta: ninguém mexendo")
         check(not win.banner_focus.get_revealed(), "sem aviso de extensão (Maverick respondeu)")
@@ -73,10 +73,10 @@ class App(gui.App):
             pump(0.3)
         pump(1.2)
         cfg = store.load_config()
-        check(engine.rules_wanted(cfg)["youtube.com"]["session_minutes"] == 25,
-              f"5 cliques no + gravam 25 ({engine.rules_wanted(cfg)['youtube.com']['session_minutes']})")
+        check(engine.rules_wanted(cfg)["youtube.com"]["session_minutes"] == 18,
+              f"5 cliques no + gravam 18 ({engine.rules_wanted(cfg)['youtube.com']['session_minutes']})")
         # dois sites editados em seguida: os dois ficam
-        win.edit("youtube.com", 30, 240)
+        win.edit("youtube.com", 30, 22)
         win.edit("instagram.com", 7, 30)
         pump(1.2)
         wanted = engine.rules_wanted(store.load_config())
@@ -94,7 +94,7 @@ class App(gui.App):
         yt.session.set_value(45)
         pump(1.2)
         cfg = store.load_config()
-        check(engine.rules_today(cfg, today)["youtube.com"]["session_minutes"] == 20, "hoje continua 20 min")
+        check(engine.rules_today(cfg, today)["youtube.com"]["session_minutes"] == 13, "hoje continua 13 min")
         check(engine.rules_today(cfg, engine.next_day(today))["youtube.com"]["session_minutes"] == 45, "amanhã 45 min")
         pump(1.2)
         check(win.banner_pending.get_revealed(), "aviso: vale a partir de amanhã")

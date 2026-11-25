@@ -54,7 +54,7 @@ class SafetyTest(unittest.TestCase):
     def test_readme_has_what_the_prompt_asks(self):
         readme = (ROOT / "README.md").read_text()
         for needle in ("## Por que existe", "## Como conta o tempo", "Teclado ou mouse", "Vídeo tocando",
-                       "Ninguém mexe", "## Regras", "20 min", "4 h", "7 min", "15 min",
+                       "Ninguém mexe", "## Regras", "13 min", "22 min", "7 min", "15 min",
                        "## Privacidade", "## Instalar e rodar", "inicia sozinho com a", "./install.sh --remove"):
             self.assertIn(needle, readme)
 

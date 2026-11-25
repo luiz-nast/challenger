@@ -238,18 +238,18 @@ class RestAndOverlayTest(unittest.TestCase):
     def test_rest_survives_restart(self):
         h = Harness()
         h.window(CHROME, "Vídeo - YouTube - Google Chrome")
-        h.run(20 * MIN)
+        h.run(13 * MIN)
         until = h.d.state["sites"]["youtube.com"]["rest_until"]
         self.assertGreater(until, 0)
-        # reinício do app 1 h depois: o descanso continua, com o mesmo fim
+        # reinício do app 10 min depois: o descanso continua, com o mesmo fim
         clock = FakeClock()
-        clock.now = h.clock.now + HOUR
+        clock.now = h.clock.now + 10 * MIN
         h2 = Harness(clock=clock)
         h2.window(CHROME, "Vídeo - YouTube - Google Chrome")
         h2.run(1)
         self.assertEqual(h2.d.state["sites"]["youtube.com"]["rest_until"], until)
         self.assertTrue(h2.d.cover.visible)
-        self.assertEqual(h2.used("youtube.com"), 20 * MIN)
+        self.assertEqual(h2.used("youtube.com"), 13 * MIN)
         # e libera na hora certa, depois do reinício
         h2.clock.now = until
         h2.run(1)
