@@ -19,6 +19,11 @@ Exige a tela desbloqueada. Os testes com navegador esperam 15 s sem teclado/mous
 você mexer no meio. Chrome e Firefox de teste usam perfil temporário; o Firefox snap é fechado por
 dentro do snap (o AppArmor recusa sinal de fora).
 
+Rodada de 26/11/2026, depois da refatoração: 6 passaram, 0 falharam. Extensão do Challenger
+respondendo; presença real lida; Chrome e Firefox contam, entram em descanso, a tela cobre sem
+tirar o foco e some ao trocar; página carregada uma vez, mesma URL; tela cheia coberta (magenta
+(255, 0, 255) antes, (13, 7, 16) depois); nenhum processo de teste sobrou.
+
 ## Agente por CDP não conta como você (`tools/cdp_idle_check.py`)
 
 Um Chrome de teste recebeu 6 s de mouse em curva, cliques, digitação e roda pelo CDP do Playwright
