@@ -381,7 +381,7 @@ class App(Adw.Application):
 
     def _about(self, *_):
         Adw.AboutDialog(application_name=store.APP_NAME, version=__version__, website=REPO_URL,
-                        comments="Conta o tempo de sites só quando é você olhando.",
+                        comments="Conta o tempo de sites só quando é você usando.",
                         license_type=Gtk.License.MIT_X11).present(self.props.active_window)
 
 

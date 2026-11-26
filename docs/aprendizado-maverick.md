@@ -41,10 +41,10 @@ Fonte: `~/garage/maverick` (0.5.17) e `github.com/luiz-nast/maverick`.
 | AT-SPI exige `toolkit-accessibility` ligado **antes** de abrir o navegador, e o Chrome não dá a URL | O Challenger não usa AT-SPI: ligar exigiria reabrir o Chrome dos agentes. Só título da janela. |
 | Nome do site no meio de outro título contava | Casar o nome só onde o site o põe (fim do título, título inteiro). |
 | Tela de bloqueio que pega o foco quebraria Ctrl+Tab | Tela sem foco de teclado: Ctrl+Tab e Alt+Tab continuam funcionando. |
-| Contar presença por teclado/mouse | Os agentes não mexem em teclado/mouse, mas vídeo parado na frente também não; o Challenger troca isso pela câmera. |
+| Contar presença por teclado/mouse | Os agentes não geram teclado/mouse no sistema: o Challenger usa teclado/mouse nos últimos 30 s ou mídia tocando (D13); a câmera foi testada e removida. |
 | Pausar mídia do site bloqueado (MPRIS) | O Challenger não pausa: mexeria na página que um agente pode estar usando. |
 
 ## O que não vem do Maverick
 
 - Limite diário do YouTube por MPRIS e bloqueio de sites de jogos (`/etc/hosts`): fora do escopo.
-- Contagem por teclado/mouse: substituída pela câmera.
+- Contagem por teclado/mouse: mantida, com 30 s em vez de 90 s, mais mídia tocando (D13).

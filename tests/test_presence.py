@@ -3,6 +3,8 @@
 import unittest
 from unittest import mock
 
+from gi.repository import GLib
+
 from challenger import presence
 from challenger.presence import COUNTS, classify
 
@@ -42,3 +44,34 @@ class SampleTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MediaPlayingTest(unittest.TestCase):
+    PREFIX = "org.mpris.MediaPlayer2."
+
+    def playing(self, status, list_error=False):
+        """`status`: nome -> "Playing" | "Paused" | GLib.Error (o Get falha)."""
+        def fake(dest, path, iface, method, reply, args=None, timeout_ms=500):
+            if method == "ListNames":
+                if list_error:
+                    raise GLib.Error("sem barramento")
+                return (list(status),)
+            if isinstance(status[dest], GLib.Error):
+                raise status[dest]
+            return (status[dest],)
+        with mock.patch.object(presence, "call", side_effect=fake):
+            return presence.media_playing()
+
+    def test_only_browsers_count(self):
+        self.assertFalse(self.playing({self.PREFIX + "spotify": "Playing",
+                                       self.PREFIX + "firefox.instance_1": "Paused"}))
+
+    def test_browser_playing(self):
+        self.assertTrue(self.playing({self.PREFIX + "chromium.instance9": "Playing"}))
+
+    def test_list_names_fails(self):
+        self.assertFalse(self.playing({}, list_error=True))
+
+    def test_one_browser_fails_other_plays(self):
+        self.assertTrue(self.playing({self.PREFIX + "firefox.instance_1": GLib.Error("morreu"),
+                                      self.PREFIX + "chromium.instance9": "Playing"}))

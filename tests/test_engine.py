@@ -61,7 +61,9 @@ class MatchTest(unittest.TestCase):
         for t in ("luiz-nast/maverick: Instagram e Pinterest - GitHub - Google Chrome",
                   "instagram - Pesquisa Google - Google Chrome", "tiktok - Google Search — Mozilla Firefox",
                   "Blog X - Dicas de Instagram - Google Chrome", "Como sair do YouTube | Blog - Google Chrome",
-                  "Nova guia - Google Chrome", "Mozilla Firefox", ""):
+                  "Nova guia - Google Chrome", "Mozilla Firefox", "",
+                  "YouTube – Wikipédia, a enciclopédia livre - Google Chrome",
+                  "TikTok - Apps no Google Play - Google Chrome"):
             self.assertIsNone(self.site(t), t)
 
     def test_domains_and_subdomains(self):

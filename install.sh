@@ -37,7 +37,7 @@ chmod +x "$BIN"
 
 cat > "$UNIT" <<EOS
 [Unit]
-Description=Challenger: tempo de sites só quando é você olhando
+Description=Challenger: tempo de sites só quando é você usando
 Documentation=https://github.com/luiz-nast/challenger
 After=graphical-session.target
 PartOf=graphical-session.target

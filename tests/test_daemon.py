@@ -15,10 +15,11 @@ MIN, HOUR = 60, 3600
 
 class FakePresence:
     def __init__(self, state="mexendo"):
-        self.state, self.samples = state, 0
+        self.state, self.samples, self.limits = state, 0, []
 
     def __call__(self, limit):
         self.samples += 1
+        self.limits.append(limit)
         return self.state
 
 
@@ -194,6 +195,20 @@ class PresencePathTest(unittest.TestCase):
 
     def test_agent_alone(self):
         self.check("ausente", False)
+
+    def test_idle_limit_comes_from_config(self):
+        store.config_file().parent.mkdir(parents=True, exist_ok=True)
+        store.config_file().write_text('{"idle_seconds": 5}')
+        h = Harness()
+        h.window(CHROME, "Vídeo - YouTube - Google Chrome")
+        h.run(1)
+        self.assertEqual(h.who.limits[-1], 5)
+
+    def test_idle_limit_default_without_config(self):
+        h = Harness()
+        h.window(CHROME, "Vídeo - YouTube - Google Chrome")
+        h.run(1)
+        self.assertEqual(h.who.limits[-1], store.IDLE_DEFAULT)
 
     def test_presence_only_while_active_site_in_front(self):
         h = Harness()

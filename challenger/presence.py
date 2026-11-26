@@ -21,7 +21,7 @@ from .bus import call
 
 COUNTS = {"mexendo", "video"}
 LABELS = {"mexendo": "você está mexendo", "video": "vídeo tocando", "ausente": "ninguém mexendo",
-          "repouso": "sem site em foco"}
+          "repouso": "sem contagem agora"}
 BROWSERS = ("firefox", "chrom", "brave", "vivaldi", "opera", "edge")
 
 

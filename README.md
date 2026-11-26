@@ -156,6 +156,8 @@ de teste, com perfil temporário, abrindo páginas locais.
 - O som de um vídeo em descanso continua por baixo da tela: pausar mexeria na página do agente.
 - O site é reconhecido pelo título da janela. Se um site mudar o formato do título, ajuste em
   `challenger/engine.py` (há testes com os títulos de hoje).
+- YouTube Music e YouTube Studio não contam: o título é "YouTube Music"/"YouTube Studio", não
+  "YouTube". É de propósito (música não é o alvo).
 
 Decisões e motivos: [DECISOES.md](DECISOES.md). Plano: [docs/PLANO.md](docs/PLANO.md).
 Aprendizado do Maverick: [docs/aprendizado-maverick.md](docs/aprendizado-maverick.md).

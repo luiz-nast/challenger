@@ -162,7 +162,6 @@ _HARD = re.compile(r"\s[-–—]\s")  # "Vídeo - YouTube", "TikTok - Make Your 
 _SOFT = re.compile(r"\s[•|·/]\s")  # "Login • Instagram", "Pin em ... | Pinterest", "Início / X"
 _COUNTER = re.compile(r"^\(\d+\+?\)\s*")  # "(3) Instagram"
 _URL = re.compile(r"^(?:[a-z][a-z0-9+.-]*://)?([a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,})(?::\d+)?(?:[/?#]\S*)?$")
-_SEARCH = re.compile(r"pesquis|search|busca|bing|duckduckgo|google")
 
 
 def is_browser(wm_class: str, title: str) -> bool:
@@ -193,8 +192,8 @@ def site_for_title(title: str, rules: dict) -> str | None:
     Maverick: nome no meio de outro título não conta). Na ordem:
     endereço como título (`m.youtube.com/watch?v=1`, aba carregando), título inteiro
     (`(3) Instagram`), último trecho (`Vídeo - YouTube`, `#fyp | TikTok`,
-    `Fulano • Instagram photos and videos`), `on/no Instagram:`, e o primeiro trecho de
-    um título de dois que não é busca (`TikTok - Make Your Day`)."""
+    `Fulano • Instagram photos and videos`), `on/no Instagram:`, e o slogan do
+    TikTok (`TikTok - Make Your Day`)."""
     t = _COUNTER.sub("", (title or "").strip().lower())
     if not t:
         return None
@@ -208,7 +207,7 @@ def site_for_title(title: str, rules: dict) -> str | None:
         lambda n: len(soft) > 1 and (soft[-1] == n or len(n) > 1 and (soft[-1].startswith(n + " ")
                                                                      or soft[-1].endswith(" " + n))),
         lambda n: re.match(rf"[^:]*\s(on|no) {re.escape(n)}:", t),
-        lambda n: len(hard) == 2 and hard[0] == n and not _SEARCH.search(hard[1]),
+        lambda n: len(hard) == 2 and hard[0] == n and hard[1] == "make your day",
     )
     for check in checks:
         for key, name in names:
@@ -287,7 +286,7 @@ def status(rules: dict, sites: dict, key: str, now: float) -> SiteStatus:
 
 def tick(sites: dict, rules: dict, now: float, focused: str | None, human: bool) -> bool:
     """Um segundo de relógio. Libera descansos vencidos (sessão nova, contador zerado),
-    soma 1 s ao site em foco se for humano olhando e ele estiver ativo, e põe em
+    soma 1 s ao site em foco se for você usando e ele estiver ativo, e põe em
     descanso quem chegou ao limite. Devolve True se o estado mudou."""
     changed = False
     for key, rule in rules.items():

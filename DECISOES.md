@@ -5,8 +5,7 @@ Cada decisão tomada sem perguntar, com o motivo. A mais simples e mais segura v
 ## Ambiente (medido em 21/11/2026)
 
 Ubuntu 26.04.1, GNOME Shell 50.1 em **Wayland**, Python do sistema 3.14 (`/usr/bin/python3`,
-com PyGObject, GTK 3, GTK 4 + libadwaita 1.9, numpy), câmera integrada em `/dev/video0` (acesso
-do usuário por ACL do logind, sem grupo `video`), Google Chrome nativo em Wayland, Firefox snap.
+com PyGObject, GTK 3, GTK 4 + libadwaita 1.9), Google Chrome nativo em Wayland, Firefox snap.
 O `python3` do PATH é o do Homebrew (3.15, sem PyGObject): tudo usa `/usr/bin/python3`.
 
 ## D1. Linguagem e bibliotecas: Python + GTK, igual ao Maverick
@@ -38,13 +37,12 @@ Sem acessibilidade não há URL. O título da janela do navegador traz o título
 (inclusive `— navegação privativa` e nome de perfil), o aviso de som e o contador `(3) `; o site
 conta se o nome dele é o título inteiro, o último trecho depois de ` - ` (igual ao nome), o último
 trecho depois de ` • `, ` | `, ` · ` ou ` / ` (igual, começando ou terminando com o nome),
-`no/on Instagram:`, ou o primeiro trecho quando o título tem só dois e não é de busca
-(`TikTok - Make Your Day`). Site adicionado pela janela usa o "Nome na aba" (ou o nome tirado do
+`no/on Instagram:` (só antes do primeiro `:`), ou o slogan do TikTok (`TikTok - Make Your Day`). Site adicionado pela janela usa o "Nome na aba" (ou o nome tirado do
 domínio: `web.whatsapp.com` → Whatsapp). Endereço no título (o navegador mostra a URL
 como título enquanto carrega: `m.youtube.com/watch?...`, `youtu.be/...`) casa pelos domínios da
 regra, com subdomínios.
 
-## D4. Câmera: OpenCV com YuNet, num venv sem sudo
+## D4. Câmera: OpenCV com YuNet, num venv sem sudo (substituída pelo D13)
 
 - OpenCV 5 tirou o Haar cascade do pacote principal; o detector leve que vem no OpenCV é o
   `FaceDetectorYN` (YuNet). O modelo tem 227 KB, licença MIT (opencv_zoo), e vai no repositório.
@@ -103,8 +101,8 @@ regra, com subdomínios.
 
 Mesmo CSS, mesma janela (DOCK, sem foco, sempre no topo, todas as áreas de trabalho), mesmo canto
 (superior direito, margem 12), mesmo texto (`Instagram 03:12 / 07:00`), mesmas cores e os mesmos
-2 s depois de sair de foco. Cinza ("parado") quando o site está em foco mas a sala está vazia.
-Na tela de descanso a pílula aparece dentro dela, vermelha: `⛔ YouTube 20:00 / 20:00`.
+2 s depois de sair de foco. Cinza ("parado") quando o site está em foco mas ninguém está mexendo nem tocando vídeo.
+Na tela de descanso a pílula aparece dentro dela, vermelha: `⛔ YouTube 13:00 / 13:00`.
 Comparação: as janelas reais das duas pílulas, cada app no seu processo, saem idênticas byte a
 byte (`docs/prints/pilula-janelas-reais.png`). O token-meter também usa o canto superior direito
 (margem 20); como o Maverick, as duas podem se encostar.
@@ -120,9 +118,8 @@ pendente.
 
 ## D10. Sem core dump, e vigias contra travamento
 
-- O apport está ligado nesta máquina (`core_pattern` manda para ele). Um core dump do daemon poderia
-  levar um quadro da câmera para `/var/crash`. O serviço tem `LimitCORE=0` e o venv usa uma cópia do
-  Python (`--copies`), que não é binário de pacote.
+- O apport está ligado nesta máquina (`core_pattern` manda para ele). O serviço tem `LimitCORE=0`
+  para não mandar core dump do daemon para `/var/crash`.
 - Linha de trabalho travada > 5 s: a tela de descanso sai. Linha de desenho travada > 10 s com a tela
   por cima: o daemon sai sozinho e o systemd o religa (`Restart=always`).
 - Ciclo que passa de 1,5 s vai para o log: um ciclo lento soma só 1 s.

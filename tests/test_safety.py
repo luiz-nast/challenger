@@ -1,7 +1,7 @@
 """O Challenger nunca mexe no navegador nem manda nada para fora.
 
 Teste de código: nenhum módulo tem chamada que feche aba ou janela, recarregue, mude URL,
-pause mídia, mate processo ou grave quadro; a extensão do GNOME só lê a janela em foco.
+pause mídia, mate processo ou grave imagem; a extensão do GNOME só lê a janela em foco.
 """
 
 import json
@@ -19,7 +19,7 @@ FORBIDDEN = {
     "automação de janela": r"xdotool|wmctrl|ydotool|XTest|\.activate\(|\.delete\(|\.minimize\(|move_resize",
     "navegador por dentro": r"remote-debugging|devtools|Page\.reload|chrome\.tabs|webdriver|playwright|selenium|CDP",
     "mexer na mídia (só ler é permitido)": r"PlayPause|\"Pause\"|\"Play\"|\"Stop\"|\"Next\"|OpenUri|\"Seek\"",
-    "gravar quadro da câmera": r"imwrite|VideoWriter|imencode|\.tofile\(|np\.save|savez",
+    "gravar imagem em disco": r"imwrite|VideoWriter|imencode|\.tofile\(|np\.save|savez",
     "abrir URL": r"webbrowser|xdg-open|gio\", \"open|Gtk\.show_uri|launch_default_for_uri",
     "rede (nada sai do computador)": r"urllib\.request|http\.client|\brequests\b|\bsocket\b|aiohttp|websocket|SocketClient",
 }
